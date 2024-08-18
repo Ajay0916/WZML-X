@@ -2,12 +2,14 @@
 import platform
 from base64 import b64encode
 from datetime import datetime
-from os import path as ospath
+from os import path as ospath rename as osrename
 from pkg_resources import get_distribution, DistributionNotFound
 from aiofiles import open as aiopen
+from threading import Thread, Event
 from aiofiles.os import remove as aioremove, path as aiopath, mkdir
-from re import match as re_match
+from re import match as re_match findall as re_findall
 from time import time
+from datetime import datetime
 from html import escape
 from uuid import uuid4
 from subprocess import run as srun
@@ -25,6 +27,8 @@ from pyrogram.enums import ChatType
 from pyrogram.types import BotCommand
 from pyrogram.errors import PeerIdInvalid
 
+import shutil
+import psutil
 from bot.helper.ext_utils.db_handler import DbManger
 from bot.helper.themes import BotTheme
 from bot.version import get_version
