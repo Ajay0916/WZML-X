@@ -191,17 +191,17 @@ class EngineStatus:
             get_all_versions()
             version_cache = bot_cache.get('eng_versions')
         self.STATUS_ARIA = f"<b>Aria2📶 v{version_cache['aria']}</b>"
-        self.STATUS_AIOHTTP = f"AioHttp {version_cache['aiohttp']}"
-        self.STATUS_GD = f"Google-API v{version_cache['gapi']}"
-        self.STATUS_MEGA = f"MegaSDK v{version_cache['mega']}"
-        self.STATUS_QB = f"qBit {version_cache['qbit']}"
-        self.STATUS_TG = f"PyroMulti v{version_cache['pyro']}"
-        self.STATUS_YT = f"yt-dlp v{version_cache['ytdlp']}"
-        self.STATUS_EXT = "pExtract v2"
-        self.STATUS_SPLIT_MERGE = f"ffmpeg v{version_cache['ffmpeg']}"
-        self.STATUS_ZIP = f"p7zip v{version_cache['p7zip']}"
-        self.STATUS_QUEUE = "Sleep v0"
-        self.STATUS_RCLONE = f"RClone {version_cache['rclone']}"
+        self.STATUS_AIOHTTP = f"<b>AioHttp🔗 {version_cache['aiohttp']}</b>"
+        self.STATUS_GD = f"<b>Google-API♻️ v{version_cache['gapi']}</b>"
+        self.STATUS_MEGA = f"<b>MegaSDK⭕️ v{version_cache['mega']}</b>"
+        self.STATUS_QB = f"<b>qBit🦠 {version_cache['qbit']}</b>"
+        self.STATUS_TG = f"<b>PyroMulti💥 v{version_cache['pyro']}</b>"
+        self.STATUS_YT = f"<b>yt-dlp🌟 v{version_cache['ytdlp']}</b>"
+        self.STATUS_EXT = "<b>pExtract⚔️ v2</b>"
+        self.STATUS_SPLIT_MERGE = f"<b>ffmpeg✂️ v{version_cache['ffmpeg']}</b>"
+        self.STATUS_ZIP = f"<b>p7zip🛠 v{version_cache['p7zip']}</b>"
+        self.STATUS_QUEUE = "<b>Sleep💤 v0</b>"
+        self.STATUS_RCLONE = f"<b>RClone📂 {version_cache['rclone']}</b>"
 
 
 def get_readable_message():
