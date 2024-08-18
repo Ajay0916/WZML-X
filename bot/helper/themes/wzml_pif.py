@@ -3,9 +3,9 @@ class WZMLStyle:
     # ----------------------
     # async def start(client, message) ---> __main__.py
     ST_BN1_NAME = '🛠️ Updates'
-    ST_BN1_URL = 'https://telegram.me/PanindiaFilmZ'
+    ST_BN1_URL = 'https://telegram.me/Ajay0916'
     ST_BN2_NAME = '😘 Use Me'
-    ST_BN2_URL = 'https://telegram.me/PanindiaFilmZ'
+    ST_BN2_URL = 'https://telegram.me/Ajay0916'
     ST_MSG = '''<b>✨ 𝐏𝐈𝐅 ➔ Mirror & Leech</b>\n\nℹ️ I Can Upload Files, Links, Torrents, etc. to Telegram, Google Drive, DDL Servers and Rclone Supported Sites!\n\n'''
     ST_BOTPM = '''<b>🕵️ Bot PM Initiated Successfully!\n\nℹ️ I will send all your files and links here.</b>'''
     ST_UNAUTH = '''<b>⚠️ Access Denied!</b>'''
@@ -83,7 +83,7 @@ class WZMLStyle:
 ┠<b>👤 User Tasks :</b> {UT}
 ┗<b>🚧 Total Tasks :</b> {BT}
 
-<a href="https://t.me/PanindiaFilmZ"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @𝐏𝐈𝐅</b></a>
+<a href="https://t.me/Ajay0916"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @Ajay0916</b></a>
     '''
     # ---------------------
 
@@ -99,7 +99,7 @@ class WZMLStyle:
 ┠<b>🌍 TimeZone:</b> {timz}
 ┗<b>🆔 Version:</b> {version}
 
-<a href="https://t.me/PanindiaFilmZ"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @𝐏𝐚𝐧𝐢𝐧𝐝𝐢𝐚𝐅𝐢𝐥𝐦𝐙</b></a>'''
+<a href="https://t.me/Ajay0916"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @Ajay0916</b></a>'''
     RESTARTED = '''<b>🔄 Bot Restarted!</b>'''
     # ---------------------
 
@@ -248,7 +248,7 @@ class WZMLStyle:
 ┠<b>🔮 DC :</b> <code>{DC}</code>
 ┗<b>🗣️ Language :</b> <code>{LANG}</code>
 
-<a href="https://t.me/PanindiaFilmZ"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @𝐏𝐚𝐧𝐢𝐧𝐝𝐢𝐚𝐅𝐢𝐥𝐦𝐙</b></a>'''
+<a href="https://t.me/Ajay0916"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @Ajay0916</b></a>'''
 
     UNIVERSAL = '''㊂ <b><u>Universal</u></b>
 
@@ -259,7 +259,7 @@ class WZMLStyle:
 ┠<b>🕵️ Bot PM :</b> <code>{BOT_PM}</code>
 ┗<b>📩 Save Mode :</b> <code>{SAVE_MODE}</code>
 
-<a href="https://t.me/PanindiaFilmZ"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @𝐏𝐚𝐧𝐢𝐧𝐝𝐢𝐚𝐅𝐢𝐥𝐦𝐙R</b></a>'''
+<a href="https://t.me/Ajay0916"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @Ajay0916</b></a>'''
 
     MIRROR = '''㊂ <b><u>Mirror/Clone</u></b>
 
@@ -272,7 +272,7 @@ class WZMLStyle:
 ┠<b>📮 User TD :</b> <code>{TMODE}</code>
 ┗<b>📝 TD Info:</b> <code>{USERTD}</code>
 
-<a href="https://t.me/PanindiaFilmZ"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @𝐏𝐚𝐧𝐢𝐧𝐝𝐢𝐚𝐅𝐢𝐥𝐦𝐙</b></a>'''
+<a href="https://t.me/Ajay0916"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @Ajay0916</b></a>'''
 
     LEECH = '''㊂ <b><u>Leech Settings</u></b>
 
@@ -288,4 +288,4 @@ class WZMLStyle:
 ┠<b>📦 Dump :</b> <code>{LDUMP}</code>
 ┗<b>🌈 Remname :</b> <code>{LREMNAME}</code>
 
-<a href="https://t.me/PanindiaFilmZ"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @𝐏𝐚𝐧𝐢𝐧𝐝𝐢𝐚𝐅𝐢𝐥𝐦𝐙</b></a>'''
+<a href="https://t.me/Ajay0916"><b>♥️ 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 @Ajay0916</b></a>'''
