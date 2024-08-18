@@ -35,6 +35,10 @@ from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.button_build import ButtonMaker
 from bot.helper.ext_utils.telegraph_helper import telegraph
 from bot.helper.ext_utils.shortners import short_url
+from telegram.error import RetryAfter
+from telegram.ext import CallbackQueryHandler
+from telegram.message import Message
+from telegram.update import Update
 from bot import *
 
 THREADPOOL   = ThreadPoolExecutor(max_workers=1000)
