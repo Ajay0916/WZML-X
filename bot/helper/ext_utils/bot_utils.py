@@ -2,12 +2,12 @@
 import platform
 from base64 import b64encode
 from datetime import datetime
+from os import path as ospath
 from pkg_resources import get_distribution, DistributionNotFound
 from aiofiles import open as aiopen
-from threading import Thread, Event
 from aiofiles.os import remove as aioremove, path as aiopath, mkdir
+from re import match as re_match
 from time import time
-from datetime import datetime
 from html import escape
 from uuid import uuid4
 from subprocess import run as srun
@@ -25,8 +25,6 @@ from pyrogram.enums import ChatType
 from pyrogram.types import BotCommand
 from pyrogram.errors import PeerIdInvalid
 
-import shutil
-import psutil
 from bot.helper.ext_utils.db_handler import DbManger
 from bot.helper.themes import BotTheme
 from bot.version import get_version
@@ -35,11 +33,6 @@ from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.button_build import ButtonMaker
 from bot.helper.ext_utils.telegraph_helper import telegraph
 from bot.helper.ext_utils.shortners import short_url
-from telegram.error import RetryAfter
-from telegram.ext import CallbackQueryHandler
-from telegram.message import Message
-from telegram.update import Update
-from bot import *
 
 THREADPOOL   = ThreadPoolExecutor(max_workers=1000)
 MAGNET_REGEX = r'magnet:\?xt=urn:(btih|btmh):[a-zA-Z0-9]*\s*'
@@ -135,18 +128,6 @@ async def get_telegraph_list(telegraph_content):
     buttons, _ = extra_btns(buttons)
     return buttons.build_menu(1)
 
-def progress_bar(percentage):
-    """Returns a progress bar for download"""
-    if isinstance(percentage, str):
-        return "N/A"
-    try:
-        percentage = int(percentage)
-    except Exception:
-        percentage = 0
-    comp = "▰"
-    ncomp = "▱"
-    return "".join(comp if i <= percentage // 10 else ncomp for i in range(1, 11))
-
 def handleIndex(index, dic):
     while True:
         if abs(index) >= len(dic):
@@ -209,7 +190,7 @@ class EngineStatus:
         if not (version_cache := bot_cache.get('eng_versions')):
             get_all_versions()
             version_cache = bot_cache.get('eng_versions')
-        self.STATUS_ARIA = f"Aria2 v{version_cache['aria']}"
+        self.STATUS_ARIA = f"<b>Aria2📶 v{version_cache['aria']}</b>"
         self.STATUS_AIOHTTP = f"AioHttp {version_cache['aiohttp']}"
         self.STATUS_GD = f"Google-API v{version_cache['gapi']}"
         self.STATUS_MEGA = f"MegaSDK v{version_cache['mega']}"
@@ -306,8 +287,6 @@ def get_readable_message():
     msg += BotTheme('FOOTER')
     buttons = ButtonMaker()
     buttons.ibutton(BotTheme('REFRESH', Page=f"{PAGE_NO}/{PAGES}"), "status ref")
-    buttons.ibutton(BotTheme('Statistics'), str(THREE))
-    buttons.ibutton(BotTheme('Close'), "status close")
     if tasks > STATUS_LIMIT:
         if config_dict['BOT_MAX_TASKS']:
             msg += BotTheme('BOT_TASKS', Tasks=tasks, Ttask=config_dict['BOT_MAX_TASKS'], Free=config_dict['BOT_MAX_TASKS']-tasks)
@@ -317,8 +296,6 @@ def get_readable_message():
         buttons.ibutton(BotTheme('PREVIOUS'), "status pre")
         buttons.ibutton(BotTheme('REFRESH', Page=f"{PAGE_NO}/{PAGES}"), "status ref")
         buttons.ibutton(BotTheme('NEXT'), "status nex")
-        buttons.ibutton(BotTheme('Statistics'), str(THREE))
-        buttons.ibutton(BotTheme('Close'), "status close")
     button = buttons.build_menu(3)
     msg += BotTheme('Cpu', cpu=cpu_percent())
     msg += BotTheme('FREE', free=get_readable_file_size(disk_usage(config_dict['DOWNLOAD_DIR']).free), free_p=round(100-disk_usage(config_dict['DOWNLOAD_DIR']).percent, 1))
@@ -815,53 +792,3 @@ async def set_commands(client):
         LOGGER.info('Bot Commands have been Set & Updated')
     except Exception as err:
         LOGGER.error(err)
-
-ONE, TWO, THREE = range(3)
-def pop_up_stats(update, context):
-    query = update.callback_query
-    stats = bot_sys_stats()
-    query.answer(text=stats, show_alert=True)
-def bot_sys_stats():
-    sent = get_readable_file_size(net_io_counters().bytes_recv)
-    recv = get_readable_file_size(net_io_counters().bytes_sent)
-    num_active = 0
-    num_upload = 0
-    num_seeding = 0
-    num_zip = 0
-    num_unzip = 0
-    num_split = 0
-    tasks = len(download_dict)
-    cpu = cpu_percent()
-    mem = virtual_memory().percent
-    disk = disk_usage("/").percent
-    for stats in list(download_dict.values()):
-        if stats.status() == MirrorStatus.STATUS_DOWNLOADING:
-            num_active += 1
-        if stats.status() == MirrorStatus.STATUS_UPLOADING:
-            num_upload += 1
-        if stats.status() == MirrorStatus.STATUS_SEEDING:
-            num_seeding += 1
-        if stats.status() == MirrorStatus.STATUS_ARCHIVING:
-            num_zip += 1
-        if stats.status() == MirrorStatus.STATUS_EXTRACTING:
-            num_unzip += 1
-        if stats.status() == MirrorStatus.STATUS_SPLITTING:
-            num_split += 1
-    return f"""
-Made with ❤️ by {Ajay}
-
-Tasks: {tasks}
-
-CPU: {progress_bar(cpu)} {cpu}%
-RAM: {progress_bar(mem)} {mem}%
-DISK: {progress_bar(disk)} {disk}%
-
-SENT: {sent} | RECV: {recv}
-
-DLs: {num_active} | ULs: {num_upload} | SEEDING: {num_seeding}
-ZIP: {num_zip} | UNZIP: {num_unzip} | SPLIT: {num_split}
-"""
-    return stats
-dispatcher.add_handler(
-    CallbackQueryHandler(pop_up_stats, pattern="^" + str(THREE) + "$")
-)
