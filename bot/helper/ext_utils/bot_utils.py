@@ -2,7 +2,6 @@
 import platform
 from base64 import b64encode
 from datetime import datetime
-from os import path as ospath rename as osrename
 from pkg_resources import get_distribution, DistributionNotFound
 from aiofiles import open as aiopen
 from threading import Thread, Event
