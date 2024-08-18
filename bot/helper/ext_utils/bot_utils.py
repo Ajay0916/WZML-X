@@ -141,11 +141,15 @@ def get_progress_bar_string(pct):
     p = min(max(pct, 0), 100)
     cFull = int(p // 8)
     cPart = int(p % 8 - 1)
-    p_str = '■' * cFull
+    p_str = '⬤' * cFull
+ #   p_str = '■' * cFull
     if cPart >= 0:
-        p_str += ['▤', '▥', '▦', '▧', '▨', '▩', '■'][cPart]
-    p_str += '□' * (12 - cFull)
-    return f"[{p_str}]"
+    #    p_str += ['▤', '▥', '▦', '▧', '▨', '▩', '■'][cPart]
+    p_str +=['◔', '◔', '◑', '◑', '◑', '◕', '◕'][cPart]
+    p_str += '○' * (12 - cFull)
+   # p_str += '□' * (12 - cFull)
+    p_str = f" ⠧{p_str}⠹"
+    return p_str
 
 
 def get_all_versions():
