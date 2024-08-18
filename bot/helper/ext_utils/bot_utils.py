@@ -6,7 +6,6 @@ from pkg_resources import get_distribution, DistributionNotFound
 from aiofiles import open as aiopen
 from threading import Thread, Event
 from aiofiles.os import remove as aioremove, path as aiopath, mkdir
-from re import match as re_match findall as re_findall
 from time import time
 from datetime import datetime
 from html import escape
