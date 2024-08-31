@@ -23,7 +23,7 @@ class _BotCommands:
         self.CancelMirror = f'cancel{CMD_SUFFIX}'
         self.CancelAllCommand = [f'cancelall{CMD_SUFFIX}', 'cancellallbot']
         self.ListCommand = f'list{CMD_SUFFIX}'
-        self.SearchCommand = f'search{CMD_SUFFIX}'
+        self.SearchCommand = [f'search{CMD_SUFFIX}' , f't{CMD_SUFFIX}']
         self.StatusCommand = [f'status{CMD_SUFFIX}', f's{CMD_SUFFIX}', 'statusall']
         self.UsersCommand = f'users{CMD_SUFFIX}'
         self.AuthorizeCommand = [f'authorize{CMD_SUFFIX}', f'a{CMD_SUFFIX}']
