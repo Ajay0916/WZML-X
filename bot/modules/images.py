@@ -62,7 +62,7 @@ async def pictures(_, message):
         buttons.ibutton(">>", f"images {user_id} turn 1")
         buttons.ibutton("Remove Image", f"images {user_id} remov 0")
         buttons.ibutton("Close", f"images {user_id} close")
-        buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
+     #   buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
         await deleteMessage(to_edit)
         await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
 
@@ -85,7 +85,7 @@ async def pics_callback(_, query):
         buttons.ibutton(">>", f"images {data[1]} turn {ind+1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-        buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+     #   buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == "remov":
         config_dict['IMAGES'].pop(int(data[3]))
@@ -104,7 +104,7 @@ async def pics_callback(_, query):
         buttons.ibutton(">>", f"images {data[1]} turn {ind+1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-        buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+     #   buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == 'removall':
         config_dict['IMAGES'].clear()
