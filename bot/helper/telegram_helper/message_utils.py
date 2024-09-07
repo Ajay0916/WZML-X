@@ -20,39 +20,24 @@ from bot.helper.ext_utils.exceptions import TgLinkException
 
 async def sendMessage(message, text, buttons=None, photo=None, **kwargs):
     try:
-        if buttons:
-            # Log the button details for debugging
-            print(f"Buttons being used: {buttons}")
-
         if photo:
-            if photo == 'IMAGES':
-                photo = rchoice(config_dict['IMAGES'])
             try:
-                return await message.reply_photo(
-                    photo=photo,
-                    reply_to_message_id=message.id,
-                    caption=text,
-                    reply_markup=buttons,
-                    disable_notification=True,
-                    **kwargs
-                )
-            except Exception as e:
-                LOGGER.error(f"Error sending photo: {e}")
+                if photo == 'IMAGES':
+                    photo = rchoice(config_dict['IMAGES'])
+                return await message.reply_photo(photo=photo, reply_to_message_id=message.id,
+                                                 caption=text, reply_markup=buttons, disable_notification=True, **kwargs)
+            except IndexError:
+                pass
+            except (PhotoInvalidDimensions, WebpageCurlFailed, MediaEmpty):
+                des_dir = await download_image_url(photo)
+                await sendMessage(message, text, buttons, des_dir)
+                await aioremove(des_dir)
                 return
-        return await message.reply(
-            text=text,
-            quote=True,
-            disable_web_page_preview=True,
-            disable_notification=True,
-            reply_markup=buttons,
-            reply_to_message_id=rply.id if (rply := message.reply_to_message) and not rply.text and not rply.caption else None,
-            **kwargs
-        )
-    except Exception as e:
-        LOGGER.error(f"Error in sendMessage: {e}")
-        return str(e)
-
-
+            except Exception as e:
+                LOGGER.error(format_exc())
+        return await message.reply(text=text, quote=True, disable_web_page_preview=True, disable_notification=True,
+                                    reply_markup=buttons, reply_to_message_id=rply.id if (rply := message.reply_to_message) and not rply.text and not rply.caption else None,
+                                    **kwargs)
     except FloodWait as f:
         LOGGER.warning(str(f))
         await sleep(f.value * 1.2)
