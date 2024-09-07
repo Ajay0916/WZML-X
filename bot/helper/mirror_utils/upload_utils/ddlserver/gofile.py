@@ -51,7 +51,7 @@ class Gofile:
 
     async def __getAccount(self, check_account=False):
         if self.token is None:
-            raise Exception
+            raise Exception("Invalid Gofile API Key, Recheck your account !!")
 
         async with ClientSession() as session:
             async with session.get(
@@ -71,26 +71,17 @@ class Gofile:
         folder_data = await self.create_folder(
             (await self.__getAccount())["rootFolder"], ospath.basename(path)
         )
-
-        # Improved error handling
-        if "folderId" not in folder_data:
-            error_message = (
-                f"Missing 'folderId' in response from create_folder. Response: {folder_data}"
-            )
-            LOGGER.error(error_message)
-            raise KeyError(error_message)
-
         await self.__setOptions(
-            contentId=folder_data["folderId"], option="public", value="true"
+            contentId=folder_data["id"], option="public", value="true"
         )
 
-        folderId = folderId or folder_data["folderId"]
+        folderId = folderId or folder_data["id"]
         folder_ids = {".": folderId}
         for root, _, files in await sync_to_async(walk, path):
             rel_path = ospath.relpath(root, path)
             parentFolderId = folder_ids.get(ospath.dirname(rel_path), folderId)
             folder_name = ospath.basename(rel_path)
-            currFolderId = (await self.create_folder(parentFolderId, folder_name))["folderId"]
+            currFolderId = (await self.create_folder(parentFolderId, folder_name))["id"]
             await self.__setOptions(
                 contentId=currFolderId, option="public", value="true"
             )
@@ -162,37 +153,34 @@ class Gofile:
             "Failed to upload file/folder to Gofile API, Retry or Try after sometimes..."
         )
 
- async def create_folder(self, parentFolderId, folderName):
-    if self.token is None:
-        raise Exception("Invalid Gofile API Key, Recheck your account !!")
+    async def create_folder(self, parentFolderId, folderName):
+        if self.token is None:
+            raise Exception("Invalid Gofile API Key, Recheck your account !!")
 
-    async with ClientSession() as session:
-        async with session.post(
-            url=f"{self.api_url}contents/createFolder",
-            data={
-                "token": self.token,
-                "parentFolderId": parentFolderId,
-                "folderName": folderName,
-            },
-        ) as resp:
-            result = await resp.json()
+        async with ClientSession() as session:
+            async with session.post(
+                url=f"{self.api_url}contents/createFolder",
+                data={
+                    "token": self.token,
+                    "parentFolderId": parentFolderId,
+                    "folderName": folderName,
+                },
+            ) as resp:
+                result = await resp.json()
 
-            # Debug print statement to inspect the result
-            print("Create Folder Result:", result)
+                # Debug print statement to inspect the result
+                print("Create Folder Result:", result)
 
-            # Improved error handling
-            data = result.get("data", {})
-            if "id" not in data:
-                error_message = (
-                    f"Missing 'folderId' in response. Response: {result}"
-                )
-                LOGGER.error(error_message)
-                raise KeyError(error_message)
+                # Improved error handling
+                data = result.get("data", {})
+                if "id" not in data:
+                    error_message = (
+                        f"Missing 'folderId' in response. Response: {result}"
+                    )
+                    LOGGER.error(error_message)
+                    raise KeyError(error_message)
 
-            return data
-            
-
-                return await self.__resp_handler(result)
+                return data
 
     async def __setOptions(self, contentId, option, value):
         if self.token is None:
@@ -231,7 +219,7 @@ class Gofile:
                 data={
                     "token": self.token,
                     "contentsId": contentsId,
-                    "folderIdDest": folderIdDest,
+                    "folderId": folderIdDest,
                 },
             ) as resp:
                 return await self.__resp_handler(await resp.json())
@@ -246,4 +234,4 @@ class Gofile:
                 data={"token": self.token},
             ) as resp:
                 return await self.__resp_handler(await resp.json())
-                
+        
