@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from asyncio import sleep as asleep
-from aiofiles.os import path as aiopath, remove as aioremove, mkdir
+from aiofiles.os import path as aiopath, remove as aioremove
 from telegraph import upload_file
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
