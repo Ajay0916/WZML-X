@@ -162,8 +162,8 @@ class Gofile:
             "Failed to upload file/folder to Gofile API, Retry or Try after sometimes..."
         )
 
-    async def create_folder(self, parentFolderId, folderName):
-        if self.token is None:
+ async def create_folder(self, parentFolderId, folderName):
+    if self.token is None:
         raise Exception("Invalid Gofile API Key, Recheck your account !!")
 
     async with ClientSession() as session:
