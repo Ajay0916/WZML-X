@@ -117,7 +117,7 @@ class Streamtape:
         url = f"{self.base_url}/file/listfolder?login={self.__userLogin}&key={self.__passKey}"
         if folder is not None:
             url += f"&folder={folder}"
-       try:
+        try:
             async with self.session.get(url) as response:
                 if response.status == 200:
                     data = await response.json()
