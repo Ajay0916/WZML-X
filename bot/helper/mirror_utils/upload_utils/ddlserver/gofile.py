@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-#!/usr/bin/env python3
 from os import path as ospath
 from os import walk
 from random import choice
@@ -39,11 +38,12 @@ class Gofile:
     async def __resp_handler(self, response):
         if (api_resp := response.get("status", "")) == "ok":
             return response["data"]
-        raise Exception(
+        error_message = (
             api_resp.split("-")[1]
             if "error-" in api_resp
             else "Response Status is not ok and Reason is Unknown"
         )
+        raise Exception(error_message)
 
     async def __getServer(self):
         async with ClientSession() as session:
@@ -52,7 +52,7 @@ class Gofile:
 
     async def __getAccount(self, check_account=False):
         if self.token is None:
-            raise Exception
+            raise Exception("Token is None")
 
         async with ClientSession() as session:
             async with session.get(
@@ -72,6 +72,13 @@ class Gofile:
         folder_data = await self.create_folder(
             (await self.__getAccount())["rootFolder"], ospath.basename(path)
         )
+
+        # Debug print statement to inspect folder_data
+        print("Folder Data:", folder_data)
+        
+        if "folderId" not in folder_data:
+            raise KeyError("folderId key is missing in the response from create_folder")
+        
         await self.__setOptions(
             contentId=folder_data["folderId"], option="public", value="true"
         )
@@ -82,7 +89,15 @@ class Gofile:
             rel_path = ospath.relpath(root, path)
             parentFolderId = folder_ids.get(ospath.dirname(rel_path), folderId)
             folder_name = ospath.basename(rel_path)
-            currFolderId = (await self.create_folder(parentFolderId, folder_name))["folderId"]
+            currFolderData = await self.create_folder(parentFolderId, folder_name)
+            
+            # Debug print statement to inspect currFolderData
+            print("Current Folder Data:", currFolderData)
+            
+            if "folderId" not in currFolderData:
+                raise KeyError("folderId key is missing in the response from create_folder")
+            
+            currFolderId = currFolderData["folderId"]
             await self.__setOptions(
                 contentId=currFolderId, option="public", value="true"
             )
@@ -136,20 +151,6 @@ class Gofile:
         )
         return await self.__resp_handler(upload_file)
 
-    async def upload_folder(self, path: str):
-    # Existing code to get folder_data
-    folder_data = await self._api.upload_folder(path=path)
-
-    # Debug print statement to inspect folder_data
-    print("Folder Data:", folder_data)
-
-    if "folderId" in folder_data:
-        return await self._api.set_folder_options(
-            contentId=folder_data["folderId"], option="public", value="true"
-        )
-    else:
-        raise ValueError("Folder ID is missing in the response")
-
     async def upload(self, file_path):
         if not await self.is_goapi(self.token):
             raise Exception("Invalid Gofile API Key, Recheck your account !!")
@@ -181,7 +182,10 @@ class Gofile:
                     "folderName": folderName,
                 },
             ) as resp:
-                return await self.__resp_handler(await resp.json())
+                result = await resp.json()
+                # Debug print statement to inspect the result
+                print("Create Folder Result:", result)
+                return await self.__resp_handler(result)
 
     async def __setOptions(self, contentId, option, value):
         if self.token is None:
@@ -235,4 +239,3 @@ class Gofile:
                 data={"token": self.token},
             ) as resp:
                 return await self.__resp_handler(await resp.json())
-                
