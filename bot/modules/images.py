@@ -4,6 +4,7 @@ from aiofiles.os import path as aiopath, remove as aioremove
 from telegraph import upload_file
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
+import logging
 
 from bot import bot, LOGGER, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
@@ -33,12 +34,12 @@ async def picture_add(_, message):
             await editMessage(editable, "<b>Now, Uploading to <code>graph.org</code>, Please Wait...</b>")
             await asleep(1)
 
-            # Handling the result of the upload_file call
             result = upload_file(photo_dir)
             LOGGER.info(f"Upload result: {result}")
 
-            if isinstance(result, list) and isinstance(result[0], dict) and 'src' in result[0]:
-                pic_add = f'https://graph.org{result[0]["src"]}'
+            # Handling different possible results
+            if isinstance(result, list) and len(result) > 0 and isinstance(result[0], dict):
+                pic_add = f'https://graph.org{result[0].get("src", "")}'
             elif isinstance(result, str):
                 pic_add = f'https://graph.org{result}'
             else:
@@ -138,3 +139,6 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+
+# Run the bot
+bot.run()
