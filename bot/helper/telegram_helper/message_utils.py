@@ -16,28 +16,65 @@ from bot import config_dict, user_data, categories_dict, bot_cache, LOGGER, bot_
 from bot.helper.ext_utils.bot_utils import get_readable_message, setInterval, sync_to_async, download_image_url, fetch_user_tds, fetch_user_dumps, new_thread
 from bot.helper.telegram_helper.button_build import ButtonMaker
 from bot.helper.ext_utils.exceptions import TgLinkException
-
+from pyrogram.errors import ButtonUrlInvalid, PhotoInvalidDimensions, WebpageCurlFailed, MediaEmpty
+import validators  # To validate URLs
 
 async def sendMessage(message, text, buttons=None, photo=None, **kwargs):
     try:
+        # Validate buttons' URLs if present
+        if buttons:
+            for button in buttons.inline_keyboard:
+                for btn in button:
+                    if btn.url and not validators.url(btn.url):
+                        LOGGER.error(f"Invalid URL found in button: {btn.url}")
+                        return  # Skip sending the message if URL is invalid
+        
+        # If there's a photo
         if photo:
             try:
+                # If 'IMAGES' is a special placeholder for random image
                 if photo == 'IMAGES':
                     photo = rchoice(config_dict['IMAGES'])
-                return await message.reply_photo(photo=photo, reply_to_message_id=message.id,
-                                                 caption=text, reply_markup=buttons, disable_notification=True, **kwargs)
+                return await message.reply_photo(
+                    photo=photo, 
+                    reply_to_message_id=message.id,
+                    caption=text, 
+                    reply_markup=buttons, 
+                    disable_notification=True, 
+                    **kwargs
+                )
             except IndexError:
-                pass
+                LOGGER.error("No images found in config_dict['IMAGES']")
+                return
             except (PhotoInvalidDimensions, WebpageCurlFailed, MediaEmpty):
+                # Handle the case where image download fails
                 des_dir = await download_image_url(photo)
-                await sendMessage(message, text, buttons, des_dir)
-                await aioremove(des_dir)
+                await sendMessage(message, text, buttons, des_dir)  # Retry with the downloaded image
+                await aioremove(des_dir)  # Clean up downloaded image
                 return
             except Exception as e:
-                LOGGER.error(format_exc())
-        return await message.reply(text=text, quote=True, disable_web_page_preview=True, disable_notification=True,
-                                    reply_markup=buttons, reply_to_message_id=rply.id if (rply := message.reply_to_message) and not rply.text and not rply.caption else None,
-                                    **kwargs)
+                LOGGER.error(f"An error occurred while sending photo: {format_exc()}")
+                return
+        
+        # Sending a plain text message
+        rply_id = message.reply_to_message.id if message.reply_to_message else message.id
+        return await message.reply(
+            text=text, 
+            quote=True, 
+            disable_web_page_preview=True, 
+            disable_notification=True,
+            reply_markup=buttons, 
+            reply_to_message_id=rply_id if not message.reply_to_message.text and not message.reply_to_message.caption else None,
+            **kwargs
+        )
+    
+    except ButtonUrlInvalid:
+        LOGGER.error("Invalid URL in button")
+    except Exception as e:
+        LOGGER.error(f"An unexpected error occurred: {format_exc()}")
+
+
+
     except FloodWait as f:
         LOGGER.warning(str(f))
         await sleep(f.value * 1.2)
