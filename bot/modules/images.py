@@ -2,7 +2,6 @@
 from asyncio import sleep as asleep
 from aiofiles.os import path as aiopath, remove as aioremove, mkdir
 from telegraph import upload_file
-
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
 
@@ -33,8 +32,12 @@ async def picture_add(_, message):
             photo_dir = await resm.download()
             await editMessage(editable, "<b>Now, Uploading to <code>graph.org</code>, Please Wait...</b>")
             await asleep(1)
-            result = upload_file(photo_dir)  # Check if this returns a URL directly
-            pic_add = f'https://graph.org{result}'  # Adjust this according to the actual return value
+            result = upload_file(photo_dir)  # Handle the result based on its type
+            if isinstance(result, str):
+                pic_add = f'https://graph.org{result}'  # Assuming result is a URL string
+            else:
+                LOGGER.error("Unexpected result type from upload_file")
+                pic_add = None  # Set pic_add to None if result type is unexpected
             LOGGER.info(f"Telegraph Link : {pic_add}")
         except Exception as e:
             LOGGER.error(f"Images Error: {str(e)}")
@@ -49,13 +52,14 @@ async def picture_add(_, message):
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
         return await editMessage(editable, help_msg)
 
-    if pic_add:  # Ensure pic_add is not None
+    if pic_add:
         config_dict['IMAGES'].append(pic_add)
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
         await asleep(1.5)
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
-
+    else:
+        await editMessage(editable, "<i>Failed to Add Image</i>")
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
@@ -72,7 +76,6 @@ async def pictures(_, message):
         await deleteMessage(to_edit)
         await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
 
-
 @new_task
 async def pics_callback(_, query):
     message = query.message
@@ -84,14 +87,14 @@ async def pics_callback(_, query):
     if data[2] == "turn":
         await query.answer()
         ind = handleIndex(int(data[3]), config_dict['IMAGES'])
-        no = len(config_dict['IMAGES']) - abs(ind+1) if ind < 0 else ind + 1
+        no = len(config_dict['IMAGES']) - abs(ind + 1) if ind < 0 else ind + 1
         pic_info = f'🌄 <b>Image No. : {no} / {len(config_dict["IMAGES"])}</b>'
         buttons = ButtonMaker()
-        buttons.ibutton("<<", f"images {data[1]} turn {ind-1}")
-        buttons.ibutton(">>", f"images {data[1]} turn {ind+1}")
+        buttons.ibutton("<<", f"images {data[1]} turn {ind - 1}")
+        buttons.ibutton(">>", f"images {data[1]} turn {ind + 1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-     #   buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+       # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == "remov":
         config_dict['IMAGES'].pop(int(data[3]))
@@ -102,15 +105,15 @@ async def pics_callback(_, query):
             await deleteMessage(query.message)
             await sendMessage(message, f"<b>No Photo to Show !</b> Add by /{BotCommands.AddImageCommand}")
             return
-        ind = int(data[3])+1
+        ind = int(data[3]) + 1
         ind = len(config_dict['IMAGES']) - abs(ind) if ind < 0 else ind
-        pic_info = f'🌄 <b>Image No. : {ind+1} / {len(config_dict["IMAGES"])}</b>'
+        pic_info = f'🌄 <b>Image No. : {ind + 1} / {len(config_dict["IMAGES"])}</b>'
         buttons = ButtonMaker()
-        buttons.ibutton("<<", f"images {data[1]} turn {ind-1}")
-        buttons.ibutton(">>", f"images {data[1]} turn {ind+1}")
+        buttons.ibutton("<<", f"images {data[1]} turn {ind - 1}")
+        buttons.ibutton(">>", f"images {data[1]} turn {ind + 1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-      #  buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+       # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == 'removall':
         config_dict['IMAGES'].clear()
@@ -124,7 +127,6 @@ async def pics_callback(_, query):
         await deleteMessage(message)
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
-
 
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
