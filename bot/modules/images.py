@@ -37,9 +37,11 @@ async def picture_add(_, message):
             result = upload_file(photo_dir)
             LOGGER.info(f"Upload result: {result}")  # Debugging step to check the structure of 'result'
 
-            # Assuming `result` is a list of dictionaries containing 'src'
-            if isinstance(result, list) and len(result) > 0 and isinstance(result[0], dict):
-                pic_add = f'https://graph.org{result[0].get("src")}'
+            # Assuming `result` is either a string or a list containing dictionaries with 'src'
+            if isinstance(result, str):
+                pic_add = f'https://graph.org{result}'  # If result is a string, assume it's the URL
+            elif isinstance(result, list) and len(result) > 0 and isinstance(result[0], dict):
+                pic_add = f'https://graph.org{result[0].get("src")}'  # If it's a list of dicts, extract the 'src'
             else:
                 LOGGER.error("Unexpected result type from upload_file")
                 pic_add = None
@@ -77,7 +79,7 @@ async def pictures(_, message):
         buttons.ibutton(">>", f"images {user_id} turn 1")
         buttons.ibutton("Remove Image", f"images {user_id} remov 0")
         buttons.ibutton("Close", f"images {user_id} close")
-        #   buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
+        # buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
         await deleteMessage(to_edit)
         await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
 
