@@ -38,7 +38,7 @@ async def picture_add(_, message):
             LOGGER.info(f"Upload result: {result}")
 
             if isinstance(result, dict):
-                pic_add = f'https://graph.org{result.get("src", "")}'  # Using get to avoid KeyError
+                pic_add = f'https://graph.org{result.get("src", "")}'  # Adjusted based on expected format
             elif isinstance(result, str):
                 pic_add = f'https://graph.org{result}'
             else:
@@ -66,6 +66,7 @@ async def picture_add(_, message):
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
         await editMessage(editable, "<i>Failed to Add Image</i>")
+        
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
