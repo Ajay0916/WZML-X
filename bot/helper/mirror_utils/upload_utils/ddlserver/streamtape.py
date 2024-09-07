@@ -63,6 +63,10 @@ class Streamtape:
                 return None
             file_id = folder_contents['files'][0]['linkid']
             await self.rename(file_id, file_name)
+            
+            # Log the generated URL
+            LOGGER.info(f"Generated StreamTape URL: https://streamtape.to/v/{file_id}")
+            
             return f"https://streamtape.to/v/{file_id}"
         return None
 
@@ -109,6 +113,7 @@ class Streamtape:
             return tg_html
         tg_html =  f"""<figure><img src='{config_dict["COVER_IMAGE"]}'></figure>""" + tg_html
         path = (await telegraph.create_page(title=f"StreamTape X", content=tg_html))["path"]
+        LOGGER.info(f"Telegraph Page Created: https://te.legra.ph/{path}")
         return f"https://te.legra.ph/{path}"
 
     async def list_folder(self, folder=None):
@@ -143,7 +148,10 @@ class Streamtape:
         elif await aiopath.isdir(file_path):
             stlink = await self.upload_folder(file_path)
         if stlink:
+            LOGGER.info(f"Upload Successful: {stlink}")
             return stlink
         if self.dluploader.is_cancelled:
+            LOGGER.info("Upload Cancelled")
             return
+        LOGGER.error("Failed to upload file/folder to StreamTape API, Retry! or Try after sometimes...")
         raise Exception("Failed to upload file/folder to StreamTape API, Retry! or Try after sometimes...")
