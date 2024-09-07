@@ -39,8 +39,8 @@ class Streamtape:
             async with session.get(_url) as response:
                 if response.status == 200:
                     data = await response.json()
-                    if (data := await response.json()) and data["status"] == 200:
-                        return data["result"]
+                    if data.get("status") == 200:
+                        return data.get("result")
         return None
 
     async def upload_file(self, file_path, folder_id=None, sha256=None, httponly=False):
@@ -60,7 +60,10 @@ class Streamtape:
         self.dluploader.last_uploaded = 0
         uploaded = await self.dluploader.upload_aiohttp(upload_info["url"], file_path, file_name, {})
         if uploaded:
-            file_id = (await self.list_folder(folder=folder_id))['files'][0]['linkid']
+            folder_content = await self.list_folder(folder=folder_id)
+            if folder_content is None:
+                return None
+            file_id = folder_content['files'][0]['linkid']
             await self.rename(file_id, file_name)
             return f"https://streamtape.to/v/{file_id}"
         return None
@@ -95,6 +98,8 @@ class Streamtape:
     async def list_telegraph(self, folder_id, nested=False):
         tg_html = ""
         contents = await self.list_folder(folder_id)
+        if contents is None:
+            return "Error: Could not retrieve folder contents."
         for fid in contents['folders']:
             tg_html += f"<aside>╾──────────────────────╼</aside><br><aside><b>🗂 {fid['name']}</b></aside><br><aside>╾──────────────────────╼</aside><br>"
             tg_html += await self.list_telegraph(fid['id'], True)
@@ -114,8 +119,10 @@ class Streamtape:
             url += f"&folder={folder}"
         async with ClientSession() as session, session.get(url) as response:
             if response.status == 200:
-                if (data := await response.json()) and data["status"] == 200:
-                    return data["result"]
+                data = await response.json()
+                LOGGER.info(f"list_folder response: {data}")
+                if data.get("status") == 200:
+                    return data.get("result")
         return None
 
     async def upload_folder(self, folder_path, parent_folder_id=None):
@@ -144,5 +151,3 @@ class Streamtape:
         if self.dluploader.is_cancelled:
             return
         raise Exception("Failed to upload file/folder to StreamTape API, Retry! or Try after sometimes...")
-        
-        
