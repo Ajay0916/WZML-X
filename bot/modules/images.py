@@ -32,12 +32,17 @@ async def picture_add(_, message):
             photo_dir = await resm.download()
             await editMessage(editable, "<b>Now, Uploading to <code>graph.org</code>, Please Wait...</b>")
             await asleep(1)
-            result = upload_file(photo_dir)  # Handle the result based on its type
-            if isinstance(result, str):
-                pic_add = f'https://graph.org{result}'  # Assuming result is a URL string
+
+            # Handling the result of the upload_file call
+            result = upload_file(photo_dir)
+            LOGGER.info(f"Upload result: {result}")  # Debugging step to check the structure of 'result'
+
+            # Assuming `result` is a list of dictionaries containing 'src'
+            if isinstance(result, list) and len(result) > 0 and isinstance(result[0], dict):
+                pic_add = f'https://graph.org{result[0].get("src")}'
             else:
                 LOGGER.error("Unexpected result type from upload_file")
-                pic_add = None  # Set pic_add to None if result type is unexpected
+                pic_add = None
             LOGGER.info(f"Telegraph Link : {pic_add}")
         except Exception as e:
             LOGGER.error(f"Images Error: {str(e)}")
@@ -72,7 +77,7 @@ async def pictures(_, message):
         buttons.ibutton(">>", f"images {user_id} turn 1")
         buttons.ibutton("Remove Image", f"images {user_id} remov 0")
         buttons.ibutton("Close", f"images {user_id} close")
-     #   buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
+        #   buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
         await deleteMessage(to_edit)
         await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
 
@@ -94,7 +99,7 @@ async def pics_callback(_, query):
         buttons.ibutton(">>", f"images {data[1]} turn {ind + 1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-       # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+        # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == "remov":
         config_dict['IMAGES'].pop(int(data[3]))
@@ -113,7 +118,7 @@ async def pics_callback(_, query):
         buttons.ibutton(">>", f"images {data[1]} turn {ind + 1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-       # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+        # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == 'removall':
         config_dict['IMAGES'].clear()
