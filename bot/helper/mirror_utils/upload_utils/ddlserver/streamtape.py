@@ -29,16 +29,17 @@ class Streamtape:
             await self.session.close()
 
     async def __getAccInfo(self):
-        if self.session is None:
+        if not self.session:
             raise Exception("ClientSession is not initialized.")
         async with self.session.get(f"{self.base_url}/account/info?login={self.__userLogin}&key={self.__passKey}") as response:
             if response.status == 200:
-                if (data := await response.json()) and data["status"] == 200:
+                data = await response.json()
+                if data.get("status") == 200:
                     return data["result"]
         return None
 
     async def __getUploadURL(self, folder=None, sha256=None, httponly=False):
-        if self.session is None:
+        if not self.session:
             raise Exception("ClientSession is not initialized.")
         _url = f"{self.base_url}/file/ul?login={self.__userLogin}&key={self.__passKey}"
         if folder is not None:
@@ -80,7 +81,7 @@ class Streamtape:
         return None
 
     async def create_folder(self, name, parent=None):
-        if self.session is None:
+        if not self.session:
             raise Exception("ClientSession is not initialized.")
         exfolders = [folder["name"] for folder in (await self.list_folder(folder=parent) or {"folders": []})["folders"]]
         if name in exfolders:
@@ -100,7 +101,7 @@ class Streamtape:
         return None
 
     async def rename(self, file_id, name):
-        if self.session is None:
+        if not self.session:
             raise Exception("ClientSession is not initialized.")
         url = f"{self.base_url}/file/rename?login={self.__userLogin}&key={self.__passKey}&file={file_id}&name={name}"
         async with self.session.get(url) as response:
@@ -111,14 +112,15 @@ class Streamtape:
         return None
 
     async def list_folder(self, folder=None):
-        if self.session is None:
+        if not self.session:
             raise Exception("ClientSession is not initialized.")
         url = f"{self.base_url}/file/listfolder?login={self.__userLogin}&key={self.__passKey}"
         if folder is not None:
             url += f"&folder={folder}"
         async with self.session.get(url) as response:
             if response.status == 200:
-                if (data := await response.json()) and data["status"] == 200:
+                data = await response.json()
+                if data.get("status") == 200:
                     return data["result"]
         return None
 
@@ -142,17 +144,18 @@ class Streamtape:
 
     async def upload_folder(self, folder_path, parent_folder_id=None):
         folder_name = Path(folder_path).name
-        genfolder = await self.create_folder(name=folder_name, parent=parent_folder_id)
+        async with self as streamtape:
+            genfolder = await streamtape.create_folder(name=folder_name, parent=parent_folder_id)
 
-        if genfolder and (newfid := genfolder.get("folderid")):
-            for entry in await scandir(folder_path):
-                if entry.is_file():
-                    await self.upload_file(entry.path, newfid)
-                    self.dluploader.total_files += 1
-                elif entry.is_dir():
-                    await self.upload_folder(entry.path, newfid)
-                    self.dluploader.total_folders += 1
-            return await self.list_telegraph(newfid)
+            if genfolder and (newfid := genfolder.get("folderid")):
+                for entry in await scandir(folder_path):
+                    if entry.is_file():
+                        await self.upload_file(entry.path, newfid)
+                        self.dluploader.total_files += 1
+                    elif entry.is_dir():
+                        await self.upload_folder(entry.path, newfid)
+                        self.dluploader.total_folders += 1
+                return await self.list_telegraph(newfid)
         return None
 
     async def upload(self, file_path):
