@@ -124,9 +124,9 @@ class Streamtape:
                     if data.get("status") == 200:
                        return data["result"]
                 LOGGER.error(f"Failed to list folder. Status: {response.status}, URL: {url}")
-      except Exception as e:
-        LOGGER.error(f"Exception occurred while listing folder: {e}")
-      return None
+        except Exception as e:
+            LOGGER.error(f"Exception occurred while listing folder: {e}")
+        return None
 
     async def list_telegraph(self, folder_id, nested=False):
         tg_html = ""
