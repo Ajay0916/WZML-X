@@ -13,6 +13,7 @@ from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
 from bot.helper.telegram_helper.button_build import ButtonMaker
 
+
 @new_task
 async def picture_add(_, message):
     resm = message.reply_to_message
@@ -29,13 +30,18 @@ async def picture_add(_, message):
         if resm.photo.file_size > 5242880 * 2:
             return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
         try:
+            # Download the photo
             photo_dir = await resm.download()
+            LOGGER.info(f"Downloaded photo to: {photo_dir}")
+            
             await editMessage(editable, "<b>Now, Uploading to <code>graph.org</code>, Please Wait...</b>")
             await asleep(1)
 
+            # Upload the photo
             result = upload_file(photo_dir)
             LOGGER.info(f"Upload result: {result}")
 
+            # Check the result type and handle accordingly
             if isinstance(result, dict):
                 pic_add = f'https://graph.org{result.get("src", "")}'
             elif isinstance(result, str):
@@ -44,10 +50,14 @@ async def picture_add(_, message):
                 LOGGER.error(f"Unexpected result format: {result}")
                 pic_add = None
 
+            # Log the final link
+            LOGGER.info(f"Telegraph Link: {pic_add}")
+
         except Exception as e:
             LOGGER.error(f"Images Error: {str(e)}")
             await editMessage(editable, f"Error occurred while uploading the image: {str(e)}")
         finally:
+            # Cleanup
             if photo_dir:
                 await aioremove(photo_dir)
     else:
