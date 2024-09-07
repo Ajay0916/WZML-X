@@ -117,12 +117,16 @@ class Streamtape:
         url = f"{self.base_url}/file/listfolder?login={self.__userLogin}&key={self.__passKey}"
         if folder is not None:
             url += f"&folder={folder}"
-        async with self.session.get(url) as response:
-            if response.status == 200:
-                data = await response.json()
-                if data.get("status") == 200:
-                    return data["result"]
-        return None
+       try:
+            async with self.session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data.get("status") == 200:
+                       return data["result"]
+                LOGGER.error(f"Failed to list folder. Status: {response.status}, URL: {url}")
+      except Exception as e:
+        LOGGER.error(f"Exception occurred while listing folder: {e}")
+      return None
 
     async def list_telegraph(self, folder_id, nested=False):
         tg_html = ""
