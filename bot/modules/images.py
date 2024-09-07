@@ -39,7 +39,8 @@ async def picture_add(_, message):
 
             # Upload the photo
             result = upload_file(photo_dir)
-            LOGGER.info(f"Upload result: {result}")
+            LOGGER.info(f"Upload result type: {type(result)}")
+            LOGGER.info(f"Upload result content: {result}")
 
             # Check the result type and handle accordingly
             if isinstance(result, dict):
@@ -75,6 +76,7 @@ async def picture_add(_, message):
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
         await editMessage(editable, "<i>Failed to Add Image</i>")
+        
         
         
 
