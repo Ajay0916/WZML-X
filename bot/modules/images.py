@@ -17,7 +17,7 @@ from bot.helper.telegram_helper.button_build import ButtonMaker
 async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
-    pic_add = None  # Initialize pic_add
+    pic_add = None
 
     if len(message.command) > 1 or (resm and resm.text):
         msg_text = resm.text if resm else message.command[1]
@@ -35,9 +35,9 @@ async def picture_add(_, message):
 
             # Upload the file and get the result
             result = upload_file(photo_dir)
+            LOGGER.info(f"Upload result type: {type(result)}")
             LOGGER.info(f"Upload result: {result}")
 
-            # Handle the result based on its type
             if isinstance(result, dict) and 'src' in result:
                 pic_add = f'https://graph.org{result["src"]}'
             elif isinstance(result, str):
