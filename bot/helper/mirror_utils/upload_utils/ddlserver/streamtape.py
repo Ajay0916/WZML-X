@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 from pathlib import Path
-
 from aiofiles.os import scandir, path as aiopath
 from aiofiles import open as aiopen
 from aiohttp import ClientSession
-
 from bot import config_dict, LOGGER
 from bot.helper.ext_utils.telegraph_helper import telegraph
 
@@ -51,7 +49,7 @@ class Streamtape:
             genfolder = await self.create_folder(file_name.rsplit(".", 1)[0])
             if genfolder is None:
                 return None
-            folder_id = genfolder["folderid"]
+            folder_id = genfolder.get("folderid")
         upload_info = await self.__getUploadURL(folder=folder_id, sha256=sha256, httponly=httponly)
         if upload_info is None:
             return None
@@ -60,7 +58,10 @@ class Streamtape:
         self.dluploader.last_uploaded = 0
         uploaded = await self.dluploader.upload_aiohttp(upload_info["url"], file_path, file_name, {})
         if uploaded:
-            file_id = (await self.list_folder(folder=folder_id))['files'][0]['linkid']
+            folder_contents = await self.list_folder(folder=folder_id)
+            if folder_contents is None or 'files' not in folder_contents or not folder_contents['files']:
+                return None
+            file_id = folder_contents['files'][0]['linkid']
             await self.rename(file_id, file_name)
             return f"https://streamtape.to/v/{file_id}"
         return None
@@ -95,6 +96,8 @@ class Streamtape:
     async def list_telegraph(self, folder_id, nested=False):
         tg_html = ""
         contents = await self.list_folder(folder_id)
+        if contents is None:
+            return "Failed to retrieve folder contents."
         for fid in contents['folders']:
             tg_html += f"<aside>╾──────────────────────╼</aside><br><aside><b>🗂 {fid['name']}</b></aside><br><aside>╾──────────────────────╼</aside><br>"
             tg_html += await self.list_telegraph(fid['id'], True)
@@ -144,5 +147,3 @@ class Streamtape:
         if self.dluploader.is_cancelled:
             return
         raise Exception("Failed to upload file/folder to StreamTape API, Retry! or Try after sometimes...")
-        
-        
