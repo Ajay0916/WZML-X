@@ -28,19 +28,22 @@ class Streamtape:
         return None
 
     async def __getUploadURL(self, folder=None, sha256=None, httponly=False):
-        _url = f"{self.base_url}/file/ul?login={self.__userLogin}&key={self.__passKey}"
-        if folder is not None:
-            _url += f"&folder={folder}"
-        if sha256 is not None:
-            _url += f"&sha256={sha256}"
-        if httponly:
-            _url += "&httponly=true"
+    _url = f"{self.base_url}/file/ul?login={self.__userLogin}&key={self.__passKey}"
+    if folder is not None:
+        _url += f"&folder={folder}"
+    if sha256 is not None:
+        _url += f"&sha256={sha256}"
+    if httponly:
+        _url += "&httponly=true"
+    try:
         async with ClientSession() as session:
             async with session.get(_url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    if (data := await response.json()) and data["status"] == 200:
-                        return data["result"]
+                response.raise_for_status()  # Raise an exception for HTTP errors
+                data = await response.json()
+                if data["status"] == 200:
+                    return data["result"]
+    except Exception as e:
+        LOGGER.error(f"Failed to get upload URL: {e}")
         return None
 
     async def upload_file(self, file_path, folder_id=None, sha256=None, httponly=False):
