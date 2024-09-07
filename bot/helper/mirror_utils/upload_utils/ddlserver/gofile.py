@@ -163,29 +163,34 @@ class Gofile:
         )
 
     async def create_folder(self, parentFolderId, folderName):
-        if self.token is None:
-            raise Exception("Invalid Gofile API Key, Recheck your account !!")
+    if self.token is None:
+        raise Exception("Invalid Gofile API Key, Recheck your account !!")
 
-        async with ClientSession() as session:
-            async with session.post(
-                url=f"{self.api_url}contents/createFolder",
-                data={
-                    "token": self.token,
-                    "parentFolderId": parentFolderId,
-                    "folderName": folderName,
-                },
-            ) as resp:
-                result = await resp.json()
-                # Debug print statement to inspect the result
-                print("Create Folder Result:", result)
+    async with ClientSession() as session:
+        async with session.post(
+            url=f"{self.api_url}contents/createFolder",
+            data={
+                "token": self.token,
+                "parentFolderId": parentFolderId,
+                "folderName": folderName,
+            },
+        ) as resp:
+            result = await resp.json()
 
-                # Improved error handling
-                if "folderId" not in result.get("data", {}):
-                    error_message = (
-                        f"Missing 'folderId' in response. Response: {result}"
-                    )
-                    LOGGER.error(error_message)
-                    raise KeyError(error_message)
+            # Debug print statement to inspect the result
+            print("Create Folder Result:", result)
+
+            # Improved error handling
+            data = result.get("data", {})
+            if "id" not in data:
+                error_message = (
+                    f"Missing 'folderId' in response. Response: {result}"
+                )
+                LOGGER.error(error_message)
+                raise KeyError(error_message)
+
+            return data
+            
 
                 return await self.__resp_handler(result)
 
