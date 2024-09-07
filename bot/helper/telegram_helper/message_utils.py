@@ -20,6 +20,10 @@ from bot.helper.ext_utils.exceptions import TgLinkException
 
 async def sendMessage(message, text, buttons=None, photo=None, **kwargs):
     try:
+        # Debugging: Log the buttons parameter
+        if buttons:
+            print(f"Buttons: {buttons}")
+
         if photo:
             try:
                 if photo == 'IMAGES':
