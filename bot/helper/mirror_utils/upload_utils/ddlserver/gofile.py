@@ -136,6 +136,20 @@ class Gofile:
         )
         return await self.__resp_handler(upload_file)
 
+    async def upload_folder(self, path: str):
+    # Existing code to get folder_data
+    folder_data = await self._api.upload_folder(path=path)
+
+    # Debug print statement to inspect folder_data
+    print("Folder Data:", folder_data)
+
+    if "folderId" in folder_data:
+        return await self._api.set_folder_options(
+            contentId=folder_data["folderId"], option="public", value="true"
+        )
+    else:
+        raise ValueError("Folder ID is missing in the response")
+
     async def upload(self, file_path):
         if not await self.is_goapi(self.token):
             raise Exception("Invalid Gofile API Key, Recheck your account !!")
