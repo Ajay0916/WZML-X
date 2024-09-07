@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from asyncio import sleep as asleep
-from aiofiles.os import path as aiopath, remove as aioremove, mkdir
+from aiofiles.os import path as aiopath, remove as aioremove
 from telegraph import upload_file
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
@@ -35,20 +35,19 @@ async def picture_add(_, message):
 
             # Handling the result of the upload_file call
             result = upload_file(photo_dir)
-            LOGGER.info(f"Upload result: {result}")  # Debugging step to check the structure of 'result'
+            LOGGER.info(f"Upload result: {result}")  # Log the result for debugging
 
-            # Assuming `result` is either a string or a list containing dictionaries with 'src'
-            if isinstance(result, str):
+            # Different cases for result handling
+            if isinstance(result, list) and isinstance(result[0], dict) and 'src' in result[0]:
+                pic_add = f'https://graph.org{result[0]["src"]}'  # Get 'src' if result is a list of dicts
+            elif isinstance(result, str):
                 pic_add = f'https://graph.org{result}'  # If result is a string, assume it's the URL
-            elif isinstance(result, list) and len(result) > 0 and isinstance(result[0], dict):
-                pic_add = f'https://graph.org{result[0].get("src")}'  # If it's a list of dicts, extract the 'src'
             else:
-                LOGGER.error("Unexpected result type from upload_file")
-                pic_add = None
-            LOGGER.info(f"Telegraph Link : {pic_add}")
+                LOGGER.error(f"Unexpected result from upload_file: {result}")
+                pic_add = None  # Set pic_add to None if the result type is unexpected
         except Exception as e:
             LOGGER.error(f"Images Error: {str(e)}")
-            await editMessage(editable, str(e))
+            await editMessage(editable, f"Error occurred while uploading the image: {str(e)}")
         finally:
             if photo_dir:
                 await aioremove(photo_dir)
