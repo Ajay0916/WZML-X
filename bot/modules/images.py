@@ -18,7 +18,9 @@ from bot.helper.telegram_helper.button_build import ButtonMaker
 async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
-    if len(message.command) > 1 or resm and resm.text:
+    pic_add = None  # Initialize pic_add
+
+    if len(message.command) > 1 or (resm and resm.text):
         msg_text = resm.text if resm else message.command[1]
         if not msg_text.startswith("http"):
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
@@ -31,24 +33,28 @@ async def picture_add(_, message):
             photo_dir = await resm.download()
             await editMessage(editable, "<b>Now, Uploading to <code>graph.org</code>, Please Wait...</b>")
             await asleep(1)
-            pic_add = f'https://graph.org{upload_file(photo_dir)[0]}'
+            result = upload_file(photo_dir)  # Check if this returns a URL directly
+            pic_add = f'https://graph.org{result}'  # Adjust this according to the actual return value
             LOGGER.info(f"Telegraph Link : {pic_add}")
         except Exception as e:
             LOGGER.error(f"Images Error: {str(e)}")
             await editMessage(editable, str(e))
         finally:
-            await aioremove(photo_dir)
+            if photo_dir:
+                await aioremove(photo_dir)
     else:
         help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {link}" + "</code>\n"
-        help_msg += "\n<b>By Replying to Photo on Telegram:</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {photo}" + "</code>"
+        help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
+        help_msg += "<b>By Replying to Photo on Telegram:</b>"
+        help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
         return await editMessage(editable, help_msg)
-    config_dict['IMAGES'].append(pic_add)
-    if DATABASE_URL:
-        await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-    await asleep(1.5)
-    await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
+
+    if pic_add:  # Ensure pic_add is not None
+        config_dict['IMAGES'].append(pic_add)
+        if DATABASE_URL:
+            await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
+        await asleep(1.5)
+        await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
 
 
 async def pictures(_, message):
