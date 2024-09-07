@@ -34,11 +34,13 @@ async def picture_add(_, message):
             await editMessage(editable, "<b>Now, Uploading to <code>graph.org</code>, Please Wait...</b>")
             await asleep(1)
 
+            # Upload the file and get the result
             result = upload_file(photo_dir)
             LOGGER.info(f"Upload result: {result}")
 
-            # Handling different possible results
+            # Handle the result based on its type
             if isinstance(result, list) and len(result) > 0 and isinstance(result[0], dict):
+                # Assuming result is a list of dictionaries
                 pic_add = f'https://graph.org{result[0].get("src", "")}'
             elif isinstance(result, str):
                 pic_add = f'https://graph.org{result}'
