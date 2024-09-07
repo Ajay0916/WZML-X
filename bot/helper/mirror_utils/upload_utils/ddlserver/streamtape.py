@@ -29,6 +29,8 @@ class Streamtape:
             await self.session.close()
 
     async def __getAccInfo(self):
+        if self.session is None:
+            raise Exception("ClientSession is not initialized.")
         async with self.session.get(f"{self.base_url}/account/info?login={self.__userLogin}&key={self.__passKey}") as response:
             if response.status == 200:
                 if (data := await response.json()) and data["status"] == 200:
@@ -36,6 +38,8 @@ class Streamtape:
         return None
 
     async def __getUploadURL(self, folder=None, sha256=None, httponly=False):
+        if self.session is None:
+            raise Exception("ClientSession is not initialized.")
         _url = f"{self.base_url}/file/ul?login={self.__userLogin}&key={self.__passKey}"
         if folder is not None:
             _url += f"&folder={folder}"
@@ -76,6 +80,8 @@ class Streamtape:
         return None
 
     async def create_folder(self, name, parent=None):
+        if self.session is None:
+            raise Exception("ClientSession is not initialized.")
         exfolders = [folder["name"] for folder in (await self.list_folder(folder=parent) or {"folders": []})["folders"]]
         if name in exfolders:
             i = 1
@@ -94,6 +100,8 @@ class Streamtape:
         return None
 
     async def rename(self, file_id, name):
+        if self.session is None:
+            raise Exception("ClientSession is not initialized.")
         url = f"{self.base_url}/file/rename?login={self.__userLogin}&key={self.__passKey}&file={file_id}&name={name}"
         async with self.session.get(url) as response:
             if response.status == 200:
@@ -103,6 +111,8 @@ class Streamtape:
         return None
 
     async def list_folder(self, folder=None):
+        if self.session is None:
+            raise Exception("ClientSession is not initialized.")
         url = f"{self.base_url}/file/listfolder?login={self.__userLogin}&key={self.__passKey}"
         if folder is not None:
             url += f"&folder={folder}"
