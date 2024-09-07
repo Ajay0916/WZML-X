@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 from asyncio import sleep as asleep
-from aiofiles.os import path as aiopath, remove as aioremove
+from aiofiles.os import path as aiopath, remove as aioremove, mkdir
 from telegraph import upload_file
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
-import logging
 
 from bot import bot, LOGGER, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
@@ -39,9 +38,8 @@ async def picture_add(_, message):
             LOGGER.info(f"Upload result: {result}")
 
             # Handle the result based on its type
-            if isinstance(result, list) and len(result) > 0 and isinstance(result[0], dict):
-                # Assuming result is a list of dictionaries
-                pic_add = f'https://graph.org{result[0].get("src", "")}'
+            if isinstance(result, dict) and 'src' in result:
+                pic_add = f'https://graph.org{result["src"]}'
             elif isinstance(result, str):
                 pic_add = f'https://graph.org{result}'
             else:
@@ -137,8 +135,7 @@ async def pics_callback(_, query):
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
 
-# Register handlers
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-
+        
