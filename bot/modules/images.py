@@ -33,12 +33,11 @@ async def picture_add(_, message):
             await editMessage(editable, "<b>Now, Uploading to <code>graph.org</code>, Please Wait...</b>")
             await asleep(1)
 
-            # Upload the file and get the result
             result = upload_file(photo_dir)
             LOGGER.info(f"Upload result: {result}")
 
             if isinstance(result, dict):
-                pic_add = f'https://graph.org{result.get("src", "")}'  # Adjusted based on expected format
+                pic_add = f'https://graph.org{result.get("src", "")}'
             elif isinstance(result, str):
                 pic_add = f'https://graph.org{result}'
             else:
@@ -66,6 +65,7 @@ async def picture_add(_, message):
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
         await editMessage(editable, "<i>Failed to Add Image</i>")
+        
         
 
 async def pictures(_, message):
