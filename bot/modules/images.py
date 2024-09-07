@@ -38,8 +38,12 @@ async def picture_add(_, message):
             LOGGER.info(f"Upload result type: {type(result)}")
             LOGGER.info(f"Upload result: {result}")
 
-            if isinstance(result, dict) and 'src' in result:
-                pic_add = f'https://graph.org{result["src"]}'
+            if isinstance(result, dict):
+                if 'src' in result:
+                    pic_add = f'https://graph.org{result["src"]}'
+                else:
+                    LOGGER.error("Result dictionary does not contain 'src' key.")
+                    pic_add = None
             elif isinstance(result, str):
                 pic_add = f'https://graph.org{result}'
             else:
@@ -58,6 +62,15 @@ async def picture_add(_, message):
         help_msg += "<b>By Replying to Photo on Telegram:</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
         return await editMessage(editable, help_msg)
+
+    if pic_add:
+        config_dict['IMAGES'].append(pic_add)
+        if DATABASE_URL:
+            await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
+        await asleep(1.5)
+        await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
+    else:
+        await editMessage(editable, "<i>Failed to Add Image</i>")
 
     if pic_add:
         config_dict['IMAGES'].append(pic_add)
