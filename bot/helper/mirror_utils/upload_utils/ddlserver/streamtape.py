@@ -5,6 +5,7 @@ from aiofiles import open as aiopen
 from aiohttp import ClientSession
 from bot import config_dict, LOGGER
 from bot.helper.ext_utils.telegraph_helper import telegraph
+from pyrogram.errors import RPCError
 
 ALLOWED_EXTS = [
     '.avi', '.mkv', '.mpg', '.mpeg', '.vob', '.wmv', '.flv', '.mp4', '.mov', '.m4v',
@@ -19,10 +20,11 @@ class Streamtape:
         self.base_url = 'https://api.streamtape.com'
 
     async def __getAccInfo(self):
-        async with ClientSession() as session, session.get(f"{self.base_url}/account/info?login={self.__userLogin}&key={self.__passKey}") as response:
-            if response.status == 200:
-                if (data := await response.json()) and data["status"] == 200:
-                    return data["result"]
+        async with ClientSession() as session:
+            async with session.get(f"{self.base_url}/account/info?login={self.__userLogin}&key={self.__passKey}") as response:
+                if response.status == 200:
+                    if (data := await response.json()) and data["status"] == 200:
+                        return data["result"]
         return None
 
     async def __getUploadURL(self, folder=None, sha256=None, httponly=False):
@@ -63,10 +65,6 @@ class Streamtape:
                 return None
             file_id = folder_contents['files'][0]['linkid']
             await self.rename(file_id, file_name)
-            
-            # Log the generated URL
-            LOGGER.info(f"Generated StreamTape URL: https://streamtape.to/v/{file_id}")
-            
             return f"https://streamtape.to/v/{file_id}"
         return None
 
@@ -81,22 +79,24 @@ class Streamtape:
         url = f"{self.base_url}/file/createfolder?login={self.__userLogin}&key={self.__passKey}&name={name}"
         if parent is not None:
             url += f"&pid={parent}"
-        async with ClientSession() as session, session.get(url) as response:
-            if response.status == 200:
-                data = await response.json()
-                if data.get("status") == 200:
-                    return data.get("result")
+        async with ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data.get("status") == 200:
+                        return data.get("result")
         return None
-        
+
     async def rename(self, file_id, name):
         url = f"{self.base_url}/file/rename?login={self.__userLogin}&key={self.__passKey}&file={file_id}&name={name}"
-        async with ClientSession() as session, session.get(url) as response:
-            if response.status == 200:
-                data = await response.json()
-                if data.get("status") == 200:
-                    return data.get("result")
+        async with ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data.get("status") == 200:
+                        return data.get("result")
         return None
-        
+
     async def list_telegraph(self, folder_id, nested=False):
         tg_html = ""
         contents = await self.list_folder(folder_id)
@@ -111,25 +111,25 @@ class Streamtape:
         tg_html += "</ol>"
         if nested:
             return tg_html
-        tg_html =  f"""<figure><img src='{config_dict["COVER_IMAGE"]}'></figure>""" + tg_html
+        tg_html = f"""<figure><img src='{config_dict["COVER_IMAGE"]}'></figure>""" + tg_html
         path = (await telegraph.create_page(title=f"StreamTape X", content=tg_html))["path"]
-        LOGGER.info(f"Telegraph Page Created: https://te.legra.ph/{path}")
         return f"https://te.legra.ph/{path}"
 
     async def list_folder(self, folder=None):
         url = f"{self.base_url}/file/listfolder?login={self.__userLogin}&key={self.__passKey}"
         if folder is not None:
             url += f"&folder={folder}"
-        async with ClientSession() as session, session.get(url) as response:
-            if response.status == 200:
-                if (data := await response.json()) and data["status"] == 200:
-                    return data["result"]
+        async with ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    if (data := await response.json()) and data["status"] == 200:
+                        return data["result"]
         return None
 
     async def upload_folder(self, folder_path, parent_folder_id=None):
         folder_name = Path(folder_path).name
         genfolder = await self.create_folder(name=folder_name, parent=parent_folder_id)
-    
+
         if genfolder and (newfid := genfolder.get("folderid")):
             for entry in await scandir(folder_path):
                 if entry.is_file():
@@ -140,7 +140,7 @@ class Streamtape:
                     self.dluploader.total_folders += 1
             return await self.list_telegraph(newfid)
         return None
-        
+
     async def upload(self, file_path):
         stlink = None
         if await aiopath.isfile(file_path):
@@ -148,10 +148,8 @@ class Streamtape:
         elif await aiopath.isdir(file_path):
             stlink = await self.upload_folder(file_path)
         if stlink:
-            LOGGER.info(f"Upload Successful: {stlink}")
             return stlink
         if self.dluploader.is_cancelled:
-            LOGGER.info("Upload Cancelled")
             return
-        LOGGER.error("Failed to upload file/folder to StreamTape API, Retry! or Try after sometimes...")
         raise Exception("Failed to upload file/folder to StreamTape API, Retry! or Try after sometimes...")
+
