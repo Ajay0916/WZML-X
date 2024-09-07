@@ -1,9 +1,11 @@
-import asyncio
-import time
-from aiohttp import ClientSession
+#!/usr/bin/env python3
 from pathlib import Path
+from aiofiles.os import scandir, path as aiopath
+from aiofiles import open as aiopen
+from aiohttp import ClientSession
 from bot import config_dict, LOGGER
 from bot.helper.ext_utils.telegraph_helper import telegraph
+from pyrogram.errors import RPCError
 
 ALLOWED_EXTS = [
     '.avi', '.mkv', '.mpg', '.mpeg', '.vob', '.wmv', '.flv', '.mp4', '.mov', '.m4v',
@@ -18,104 +20,119 @@ class Streamtape:
         self.base_url = 'https://api.streamtape.com'
         self.session = None
 
-    async def __initialize_session(self):
-        if not self.session:
-            self.session = ClientSession()
+    async def __aenter__(self):
+        self.session = ClientSession()
+        return self
 
-    async def __api_request(self, url, method='GET', retries=3, backoff_factor=1):
-        await self.__initialize_session()
-        for attempt in range(retries):
-            async with self.session.request(method, url) as response:
-                content = await response.text()
-                LOGGER.info(f"API Request: {method} {url}")
-                LOGGER.info(f"Response Status: {response.status}")
-                LOGGER.info(f"Response Headers: {response.headers}")
-                LOGGER.info(f"Response Content: {content}")
-
-                if response.status == 200:
-                    try:
-                        data = await response.json()
-                        LOGGER.info(f"Parsed Data: {data}")
-                        if data.get("status") == 200:
-                            return data.get("result")
-                        elif data.get("status") == 429:  # Rate limit exceeded
-                            LOGGER.error("Rate limit exceeded. Retrying...")
-                            await asyncio.sleep(backoff_factor * (2 ** attempt))
-                        else:
-                            LOGGER.error(f"API Response Error: {data.get('msg')}")
-                            return None
-                    except Exception as parse_exception:
-                        LOGGER.error(f"Error parsing JSON response: {parse_exception}")
-                        return None
-                else:
-                    LOGGER.error(f"Failed API request. Status: {response.status}")
-                    return None
-        LOGGER.error("Max retries exceeded.")
-        return None
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            await self.session.close()
 
     async def __getAccInfo(self):
-        url = f"{self.base_url}/account/info?login={self.__userLogin}&key={self.__passKey}"
-        return await self.__api_request(url)
+        if not self.session:
+            raise Exception("ClientSession is not initialized.")
+        async with self.session.get(f"{self.base_url}/account/info?login={self.__userLogin}&key={self.__passKey}") as response:
+            if response.status == 200:
+                data = await response.json()
+                if data.get("status") == 200:
+                    return data["result"]
+        return None
 
     async def __getUploadURL(self, folder=None, sha256=None, httponly=False):
-        url = f"{self.base_url}/file/ul?login={self.__userLogin}&key={self.__passKey}"
+        if not self.session:
+            raise Exception("ClientSession is not initialized.")
+        _url = f"{self.base_url}/file/ul?login={self.__userLogin}&key={self.__passKey}"
         if folder is not None:
-            url += f"&folder={folder}"
+            _url += f"&folder={folder}"
         if sha256 is not None:
-            url += f"&sha256={sha256}"
+            _url += f"&sha256={sha256}"
         if httponly:
-            url += "&httponly=true"
-        return await self.__api_request(url)
+            _url += "&httponly=true"
+        async with self.session.get(_url) as response:
+            if response.status == 200:
+                data = await response.json()
+                if data.get("status") == 200:
+                    return data["result"]
+        return None
 
     async def upload_file(self, file_path, folder_id=None, sha256=None, httponly=False):
         if Path(file_path).suffix.lower() not in ALLOWED_EXTS:
             return f"Skipping '{file_path}' due to disallowed extension."
-        
         file_name = Path(file_path).name
         if not folder_id:
             genfolder = await self.create_folder(file_name.rsplit(".", 1)[0])
             if genfolder is None:
                 return None
             folder_id = genfolder.get("folderid")
-        
         upload_info = await self.__getUploadURL(folder=folder_id, sha256=sha256, httponly=httponly)
         if upload_info is None:
             return None
-        
         if self.dluploader.is_cancelled:
             return
-        
         self.dluploader.last_uploaded = 0
         uploaded = await self.dluploader.upload_aiohttp(upload_info["url"], file_path, file_name, {})
-        
         if uploaded:
             folder_contents = await self.list_folder(folder=folder_id)
             if folder_contents is None or 'files' not in folder_contents or not folder_contents['files']:
                 return None
-            
             file_id = folder_contents['files'][0]['linkid']
             await self.rename(file_id, file_name)
             return f"https://streamtape.to/v/{file_id}"
-        
         return None
 
     async def create_folder(self, name, parent=None):
+        if not self.session:
+            raise Exception("ClientSession is not initialized.")
         exfolders = [folder["name"] for folder in (await self.list_folder(folder=parent) or {"folders": []})["folders"]]
         if name in exfolders:
             i = 1
             while f"{i} {name}" in exfolders:
                 i += 1
             name = f"{i} {name}"
-        
+
         url = f"{self.base_url}/file/createfolder?login={self.__userLogin}&key={self.__passKey}&name={name}"
         if parent is not None:
             url += f"&pid={parent}"
-        
-        return await self.__api_request(url)
+        async with self.session.get(url) as response:
+            if response.status == 200:
+                data = await response.json()
+                if data.get("status") == 200:
+                    return data.get("result")
+        return None
 
     async def rename(self, file_id, name):
+        if not self.session:
+            raise Exception("ClientSession is not initialized.")
         url = f"{self.base_url}/file/rename?login={self.__userLogin}&key={self.__passKey}&file={file_id}&name={name}"
-        return await self.__api_request(url)
+        async with self.session.get(url) as response:
+            if response.status == 200:
+                data = await response.json()
+                if data.get("status") == 200:
+                    return data.get("result")
+        return None
+
+    async def list_folder(self, folder=None):
+        if not self.session:
+            raise Exception("ClientSession is not initialized.")
+        url = f"{self.base_url}/file/listfolder?login={self.__userLogin}&key={self.__passKey}"
+        if folder is not None:
+            url += f"&folder={folder}"
+        try:
+            async with self.session.get(url) as response:
+                content = await response.text()
+                LOGGER.info(f"Response content: {content}")
+                if response.status == 200:
+                    data = await response.json()
+                    if data.get("status") == 200:
+                        return data.get("result")
+                    else:
+                        LOGGER.error(f"API error: {data.get('message')}")
+                else:
+                    LOGGER.error(f"Failed to list folder. Status: {response.status}, URL: {url}")
+        except Exception as e:
+            LOGGER.error(f"Exception occurred while listing folder: {e}")
+        return None
+    
 
     async def list_telegraph(self, folder_id, nested=False):
         tg_html = ""
@@ -135,17 +152,30 @@ class Streamtape:
         path = (await telegraph.create_page(title=f"StreamTape X", content=tg_html))["path"]
         return f"https://te.legra.ph/{path}"
 
-    async def list_folder(self, folder=None):
-        url = f"{self.base_url}/file/listfolder?login={self.__userLogin}&key={self.__passKey}"
-        if folder is not None:
-            url += f"&folder={folder}"
-        
-        return await self.__api_request(url)
+    async def upload_folder(self, folder_path, parent_folder_id=None):
+        folder_name = Path(folder_path).name
+        async with self as streamtape:
+            genfolder = await streamtape.create_folder(name=folder_name, parent=parent_folder_id)
 
-    async def __aenter__(self):
-        await self.__initialize_session()
-        return self
+            if genfolder and (newfid := genfolder.get("folderid")):
+                for entry in await scandir(folder_path):
+                    if entry.is_file():
+                        await self.upload_file(entry.path, newfid)
+                        self.dluploader.total_files += 1
+                    elif entry.is_dir():
+                        await self.upload_folder(entry.path, newfid)
+                        self.dluploader.total_folders += 1
+                return await self.list_telegraph(newfid)
+        return None
 
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        if self.session:
-            await self.session.close()
+    async def upload(self, file_path):
+        stlink = None
+        if await aiopath.isfile(file_path):
+            stlink = await self.upload_file(file_path)
+        elif await aiopath.isdir(file_path):
+            stlink = await self.upload_folder(file_path)
+        if stlink:
+            return stlink
+        if self.dluploader.is_cancelled:
+            return
+        raise Exception("Failed to upload file/folder to StreamTape API, Retry! or Try after sometimes...")
