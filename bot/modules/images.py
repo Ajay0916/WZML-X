@@ -35,16 +35,16 @@ async def picture_add(_, message):
 
             # Handling the result of the upload_file call
             result = upload_file(photo_dir)
-            LOGGER.info(f"Upload result: {result}")  # Log the result for debugging
+            LOGGER.info(f"Upload result: {result}")
 
-            # Different cases for result handling
             if isinstance(result, list) and isinstance(result[0], dict) and 'src' in result[0]:
-                pic_add = f'https://graph.org{result[0]["src"]}'  # Get 'src' if result is a list of dicts
+                pic_add = f'https://graph.org{result[0]["src"]}'
             elif isinstance(result, str):
-                pic_add = f'https://graph.org{result}'  # If result is a string, assume it's the URL
+                pic_add = f'https://graph.org{result}'
             else:
-                LOGGER.error(f"Unexpected result from upload_file: {result}")
-                pic_add = None  # Set pic_add to None if the result type is unexpected
+                LOGGER.error(f"Unexpected result format: {result}")
+                pic_add = None
+
         except Exception as e:
             LOGGER.error(f"Images Error: {str(e)}")
             await editMessage(editable, f"Error occurred while uploading the image: {str(e)}")
@@ -134,6 +134,7 @@ async def pics_callback(_, query):
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
 
+# Register handlers
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
