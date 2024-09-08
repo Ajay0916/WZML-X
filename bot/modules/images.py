@@ -7,7 +7,7 @@ from pyrogram.filters import command, regex
 
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
-from bot.helper.ext_utils.bot_utils import handleIndex, new_task, arg_parser
+from bot.helper.ext_utils.bot_utils import handleIndex, new_task
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
@@ -34,14 +34,17 @@ async def upload_to_imghippo(image_path):
             return None
 
 async def handle_picture_add_command(client, message):
+    if len(message.command) < 2:
+        await sendMessage(message, "<b>Invalid command format.</b>")
+        return
+
     input_list = message.text.split(' ')
     arg_base = {'link': '', '-i': 1}
-    args = arg_parser(input_list[1:], arg_base)
     
-    try:
-        instances = int(args['-i'])
-    except ValueError:
-        instances = 1
+    # Simple argument parsing
+    args = {arg_base[i]: v for i, v in enumerate(input_list[1:]) if i in arg_base}
+
+    instances = int(args.get('-i', 1))
 
     if instances > 1:
         await asyncio.sleep(5)
