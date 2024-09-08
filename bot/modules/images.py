@@ -41,9 +41,9 @@ async def picture_add(_, message):
 
     # Parse arguments
     args = arg_parser(message.text, "-i")
-    if args:
-        index = args.get("-i")
-        if index is not None and index.isdigit():
+    if args and "-i" in args:
+        index = args["-i"]
+        if index.isdigit():
             index = int(index)
             messages = [message.reply_to_message] + await get_next_messages(message, index)
             for i, msg in enumerate(messages):
@@ -174,8 +174,8 @@ async def pics_callback(_, query):
         await deleteMessage(message)
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
-            
+
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-    
+bot.add_handler(CallbackQueryHandler(pics_callback, pattern=regex('images')))
+            
