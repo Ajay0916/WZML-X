@@ -4,7 +4,6 @@ import asyncio
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
-
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
 from bot.helper.ext_utils.bot_utils import handleIndex, new_task, arg_parser
@@ -39,9 +38,18 @@ async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
-    # Parse arguments
-    args = arg_parser(message.text, "-i")
-    index = int(args.get("-i", -1)) if args.get("-i") else None
+    # Parse the arguments
+    args = arg_parser(message.text, "-i")  # Use arg_parser to handle arguments
+
+    # Handle the `-i` argument for selecting images
+    if "-i" in args:
+        index = args.get("-i")
+        if index.isdigit() and int(index) < len(config_dict['IMAGES']):
+            pic_add = config_dict['IMAGES'][int(index)]
+            await editMessage(editable, f"<b>Adding your selected Image:</b> <code>{pic_add}</code>")
+        else:
+            await editMessage(editable, "<b>Invalid Index. Please provide a valid number.</b>")
+        return
 
     if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
@@ -73,10 +81,7 @@ async def picture_add(_, message):
         return await editMessage(editable, help_msg)
     
     if pic_add:
-        if index is not None and index < len(config_dict['IMAGES']):
-            config_dict['IMAGES'].insert(index, pic_add)
-        else:
-            config_dict['IMAGES'].append(pic_add)
+        config_dict['IMAGES'].append(pic_add)
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
         await asyncio.sleep(1.5)
@@ -141,14 +146,16 @@ async def pics_callback(_, query):
         config_dict['IMAGES'].clear()
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-        query.answer("All Images Successfully Deleted", show_alert=True)
-        await deleteMessage(query.message)
-        await sendMessage(message, f"<b>No Photo to Show !</b> Add by /{BotCommands.AddImageCommand}")
-    elif data[2] == 'close':
-        await deleteMessage(query.message)
+        await query.answer("All Images Successfully Deleted", show_alert=True)
+        await sendMessage(message, f"<b>No Images to Show !</b> Add by /{BotCommands.AddImageCommand}")
+        await deleteMessage(message)
+    else:
+        await query.answer()
+        await deleteMessage(message)
+        if message.reply_to_message:
+            await deleteMessage(message.reply_to_message)
 
-# Add handlers
-bot.add_handler(MessageHandler(picture_add, command(BotCommands.AddImageCommand)))
-bot.add_handler(MessageHandler(pictures, command(BotCommands.ShowImageCommand)))  # Ensure this is correct
-bot.add_handler(CallbackQueryHandler(pics_callback, regex(r'^images')))
+bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
+bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
+bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
         
