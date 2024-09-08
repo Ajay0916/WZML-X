@@ -2,6 +2,8 @@
 from asyncio import sleep as asleep
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from google.auth.transport.requests import Request
+from google.auth import default
 
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
@@ -29,17 +31,11 @@ async def get_drive_image_links(service, folder_id):
     return image_links
 
 
-# Function to make files public
-def make_files_public(service, file_id):
-    try:
-        permission = {
-            'role': 'reader',
-            'type': 'anyone',
-        }
-        service.permissions().create(fileId=file_id, body=permission).execute()
-    except HttpError as error:
-        LOGGER.error(f"An error occurred: {error}")
-        return None
+# Initialize Google Drive API client without authentication for public folders
+def get_drive_service():
+    creds, _ = default()
+    service = build('drive', 'v3', credentials=creds)
+    return service
 
 
 @new_task
@@ -54,16 +50,12 @@ async def picture_add(_, message):
         
         if "drive.google.com" in msg_text:
             folder_id = msg_text.split("/")[-1]  # Extract folder ID from the Google Drive URL
-            service = build('drive', 'v3')  # Assuming Google Drive credentials are set up properly
+            service = get_drive_service()  # Get the Google Drive service
 
             # Fetch all image links from the Google Drive folder
             image_links = await get_drive_image_links(service, folder_id)
             if not image_links:
                 return await editMessage(editable, "<b>No images found in the Google Drive folder!</b>")
-            
-            # Make all images public
-            for image in image_links:
-                make_files_public(service, image.split('=')[1])
 
             # Add all image links to config_dict['IMAGES']
             config_dict['IMAGES'].extend(image_links)
@@ -105,7 +97,7 @@ async def picture_add(_, message):
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     
     else:
-        help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
+        help_msg = "<b>By Replying to Link (Google Drive or DDL):</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
         help_msg += "\n<b>By Replying to Photo on Telegram:</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
@@ -186,4 +178,3 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-        
