@@ -4,6 +4,7 @@ import asyncio
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
+from pyrogram import Client, filters
 
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
@@ -38,13 +39,19 @@ async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
-
-    # Use an empty dictionary for arg_base
-    args = arg_parser(message.text, {"-i": None})
-
-    index = args.get("-i") if args else None
-
-    if len(message.command) > 1 or resm and resm.text:
+    
+    args = arg_parser(message.text, "-i")  # Parse arguments
+    
+    if args.get("-i"):  # If -i argument is present
+        index = args.get("-i")
+        if not index.isdigit():
+            return await editMessage(editable, "<b>Invalid index format. Use -i followed by a number.</b>")
+        index = int(index)
+        if index < 1 or index > len(config_dict['IMAGES']):
+            return await editMessage(editable, "<b>Index out of range.</b>")
+        pic_add = config_dict['IMAGES'][index - 1]
+        await editMessage(editable, f"<b>Adding your Image Link :</b> <code>{pic_add}</code>")
+    elif len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
         if not msg_text.startswith("http"):
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
@@ -74,12 +81,7 @@ async def picture_add(_, message):
         return await editMessage(editable, help_msg)
     
     if pic_add:
-        if index:
-            index = int(index)
-            # Update the list of images
-            config_dict['IMAGES'].insert(index, pic_add)
-        else:
-            config_dict['IMAGES'].append(pic_add)
+        config_dict['IMAGES'].append(pic_add)
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
         await asyncio.sleep(1.5)
@@ -153,8 +155,7 @@ async def pics_callback(_, query):
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
 
-# Add handlers for commands and callbacks
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-                                                                        
+    
