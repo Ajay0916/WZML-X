@@ -4,7 +4,6 @@ import asyncio
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
-
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
 from bot.helper.ext_utils.bot_utils import handleIndex, new_task
@@ -35,21 +34,24 @@ async def upload_to_imghippo(image_path):
 
 @new_task
 async def picture_add(_, message):
-    args = message.text.split()
-    index = None
-    if len(args) > 1 and args[1].startswith("-i"):
-        try:
-            index = int(args[1][2:])
-        except ValueError:
-            await message.reply("Invalid index format. Use -i followed by a number.")
-            return
-
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
-    if len(args) > 2 or resm and resm.text:
-        msg_text = resm.text if resm else args[2]
+    if '-i' in message.text:
+        try:
+            index = int(message.text.split('-i')[-1].strip())
+            if index < 0:
+                raise ValueError("Index must be a non-negative integer.")
+            if index >= len(config_dict['IMAGES']):
+                raise IndexError("Index out of range.")
+            pic_add = config_dict['IMAGES'][index]
+            await editMessage(editable, f"<b>Using Image at Index {index} :</b> <code>{pic_add}</code>")
+        except (ValueError, IndexError) as e:
+            await editMessage(editable, f"<b>Invalid index format. Use -i followed by a number.</b>")
+            LOGGER.error(f"Invalid index error: {e}")
+    elif len(message.command) > 1 or resm and resm.text:
+        msg_text = resm.text if resm else message.command[1]
         if not msg_text.startswith("http"):
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
         pic_add = msg_text.strip()
@@ -75,20 +77,14 @@ async def picture_add(_, message):
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
         help_msg += "<b>By Replying to Photo on Telegram:</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
+        help_msg += "\n<b>Use Index with -i to select an existing image:</b>"
+        help_msg += f"\n<code>/{BotCommands.AddImageCommand} -i {{index}}</code>"
         return await editMessage(editable, help_msg)
-
+    
     if pic_add:
-        if index is not None:
-            if index < 0 or index >= len(config_dict['IMAGES']):
-                await editMessage(editable, "Index out of range.")
-                return
-            config_dict['IMAGES'][index] = pic_add
-        else:
-            config_dict['IMAGES'].append(pic_add)
-
+        config_dict['IMAGES'].append(pic_add)
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-
         await asyncio.sleep(1.5)
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
