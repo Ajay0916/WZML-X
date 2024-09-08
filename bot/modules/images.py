@@ -68,7 +68,7 @@ async def picture_add(_, message):
 
                     # Process subsequent messages
                     for i in range(index - 1):
-                        next_message = await bot.get_chat_history(message.chat.id, offset_id=message.message_id, limit=1)
+                        next_message = await bot.get_chat_history(message.chat.id, offset_id=message.id, limit=1)
                         if next_message:
                             resm = next_message[0]
                             if resm.photo:
@@ -208,4 +208,3 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-                        
