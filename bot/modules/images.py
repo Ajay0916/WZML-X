@@ -3,7 +3,7 @@ import aiohttp
 import asyncio
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
-from pyrogram.filters import command, Filters
+from pyrogram.filters import command, Filter
 
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
@@ -153,4 +153,4 @@ async def pics_callback(_, query):
 
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(CallbackQueryHandler(pics_callback, Filters.regex('images')))
+bot.add_handler(CallbackQueryHandler(pics_callback, Filter.regex('images')))
