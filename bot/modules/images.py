@@ -177,5 +177,5 @@ async def pics_callback(_, query):
             await deleteMessage(message.reply_to_message)
 
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand)))
-bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ShowImageCommand)))
+bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand)))
 bot.add_handler(CallbackQueryHandler(pics_callback, pattern=regex('images')))
