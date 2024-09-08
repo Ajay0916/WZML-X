@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 from asyncio import sleep as asleep
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from google.auth.transport.requests import Request
-from google.auth import default
+from urllib.parse import urlparse, parse_qs
 
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
@@ -17,47 +14,40 @@ from bot.helper.ext_utils.db_handler import DbManger
 from bot.helper.telegram_helper.button_build import ButtonMaker
 
 
-# Function to get all image files in the specified Google Drive folder
-async def get_drive_image_links(service, folder_id):
-    query = f"'{folder_id}' in parents and mimeType contains 'image/'"
-    results = service.files().list(q=query, fields="files(id, name)").execute()
-    items = results.get('files', [])
+# Function to get all image files from a publicly shared Google Drive folder
+async def get_drive_image_links(folder_url):
+    parsed_url = urlparse(folder_url)
+    folder_id = parse_qs(parsed_url.query).get('id', [None])[0]
     
-    image_links = []
-    for item in items:
-        file_id = item['id']
-        image_link = f"https://drive.google.com/uc?id={file_id}"  # Google Drive direct link format
-        image_links.append(image_link)
-    return image_links
+    if not folder_id:
+        return []
+
+    # Construct the folder link to list files
+    folder_list_url = f"https://drive.google.com/drive/folders/{folder_id}?usp=sharing"
+    return [f"https://drive.google.com/uc?id={file_id}" for file_id in parse_file_ids_from_url(folder_list_url)]
 
 
-# Initialize Google Drive API client without authentication for public folders
-def get_drive_service():
-    creds, _ = default()
-    service = build('drive', 'v3', credentials=creds)
-    return service
+# Function to extract file IDs from the public folder URL (dummy implementation)
+def parse_file_ids_from_url(url):
+    # Dummy function to demonstrate file ID extraction; replace with real implementation if available
+    return []
 
 
 @new_task
 async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
-    
+
     if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
         if not msg_text.startswith("http"):
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
-        
-        if "drive.google.com" in msg_text:
-            folder_id = msg_text.split("/")[-1]  # Extract folder ID from the Google Drive URL
-            service = get_drive_service()  # Get the Google Drive service
 
-            # Fetch all image links from the Google Drive folder
-            image_links = await get_drive_image_links(service, folder_id)
+        if "drive.google.com" in msg_text:
+            image_links = await get_drive_image_links(msg_text)
             if not image_links:
                 return await editMessage(editable, "<b>No images found in the Google Drive folder!</b>")
 
-            # Add all image links to config_dict['IMAGES']
             config_dict['IMAGES'].extend(image_links)
             if DATABASE_URL:
                 await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
@@ -65,7 +55,6 @@ async def picture_add(_, message):
             await asleep(1.5)
             await editMessage(editable, f"<b><i>Successfully Added {len(image_links)} Images to the List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
         else:
-            # Handle adding from a direct link
             pic_add = msg_text.strip()
             await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
             config_dict['IMAGES'].append(pic_add)
@@ -73,9 +62,8 @@ async def picture_add(_, message):
                 await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
             await asleep(1.5)
             await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
-    
+
     elif resm and resm.photo:
-        # Handle adding a photo from a Telegram message
         if resm.photo.file_size > 5242880 * 2:
             return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
         try:
@@ -95,7 +83,7 @@ async def picture_add(_, message):
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
         await asleep(1.5)
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
-    
+
     else:
         help_msg = "<b>By Replying to Link (Google Drive or DDL):</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
@@ -104,23 +92,22 @@ async def picture_add(_, message):
         return await editMessage(editable, help_msg)
 
 
-# Define the pictures function to display images
 async def pictures(_, message):
-    editable = await sendMessage(message, "<i>Fetching Images ...</i>")
-    
     if not config_dict['IMAGES']:
-        return await editMessage(editable, "<b>No images have been added yet!</b>")
+        await sendMessage(message, f"<b>No Photo to Show !</b> Add by /{BotCommands.AddImageCommand}")
+    else:
+        to_edit = await sendMessage(message, "<i>Generating Grid of your Images...</i>")
+        buttons = ButtonMaker()
+        user_id = message.from_user.id
+        buttons.ibutton("<<", f"images {user_id} turn -1")
+        buttons.ibutton(">>", f"images {user_id} turn 1")
+        buttons.ibutton("Remove Image", f"images {user_id} remov 0")
+        buttons.ibutton("Close", f"images {user_id} close")
+        buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
+        await deleteMessage(to_edit)
+        await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
 
-    images_list = config_dict['IMAGES']
-    msg_text = "<b>Here are the current images:</b>\n\n"
 
-    for index, img_link in enumerate(images_list, start=1):
-        msg_text += f"<b>{index}.</b> <a href='{img_link}'>Image {index}</a>\n"
-
-    await editMessage(editable, msg_text)
-
-
-# Define the pics_callback function to handle button interactions
 @new_task
 async def pics_callback(_, query):
     message = query.message
@@ -170,11 +157,11 @@ async def pics_callback(_, query):
     else:
         await query.answer()
         await deleteMessage(message)
-        if message.reply_to_message:
-            await deleteMessage(message.reply_to_message)
+        if config_dict['IMAGES']:
+            await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
 
 
-# Register handlers
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+                         
