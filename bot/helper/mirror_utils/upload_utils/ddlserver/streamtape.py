@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import asyncio  # Ensure asyncio is imported
 from pathlib import Path
+import asyncio
 
 from aiofiles.os import scandir, path as aiopath
 from aiofiles import open as aiopen
@@ -59,22 +59,14 @@ class Streamtape:
         if self.dluploader.is_cancelled:
             return
         self.dluploader.last_uploaded = 0
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                uploaded = await self.dluploader.upload_aiohttp(upload_info["url"], file_path, file_name, {})
-                if uploaded:
-                    folder_content = await self.list_folder(folder=folder_id)
-                    if folder_content is None:
-                        return None
-                    file_id = folder_content['files'][0]['linkid']
-                    await self.rename(file_id, file_name)
-                    await asyncio.sleep(1)  # Add delay between uploads
-                    return f"https://streamtape.to/v/{file_id}"
-            except Exception as e:
-                LOGGER.error(f"Upload attempt {attempt + 1} failed: {e}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+        uploaded = await self.dluploader.upload_aiohttp(upload_info["url"], file_path, file_name, {})
+        if uploaded:
+            folder_content = await self.list_folder(folder=folder_id)
+            if folder_content is None:
+                return None
+            file_id = folder_content['files'][0]['linkid']
+            await self.rename(file_id, file_name)
+            return f"https://streamtape.to/v/{file_id}"
         return None
 
     async def create_folder(self, name, parent=None):
@@ -127,34 +119,41 @@ class Streamtape:
         if folder is not None:
             url += f"&folder={folder}"
         async with ClientSession() as session, session.get(url) as response:
-            data = await response.json()
-            LOGGER.info(f"list_folder response: {data}")
-            if response.status == 200 and data.get("status") == 200:
-                return data.get("result")
+            if response.status == 200:
+                data = await response.json()
+                LOGGER.info(f"list_folder response: {data}")
+                if data.get("status") == 200:
+                    return data.get("result")
         return None
+
+    async def upload_file_with_error_handling(self, file_path, folder_id=None, sha256=None, httponly=False):
+        try:
+            return await self.upload_file(file_path, folder_id, sha256, httponly)
+        except Exception as e:
+            LOGGER.error(f"Error uploading file {file_path}: {e}")
+            return None
 
     async def upload_folder(self, folder_path, parent_folder_id=None):
         folder_name = Path(folder_path).name
         genfolder = await self.create_folder(name=folder_name, parent=parent_folder_id)
     
         if genfolder and (newfid := genfolder.get("folderid")):
-            entries = await scandir(folder_path)
-            tasks = []
-            for entry in entries:
+            files = []
+            for entry in await scandir(folder_path):
                 if entry.is_file():
-                    tasks.append(self.upload_file(entry.path, newfid))
-                    self.dluploader.total_files += 1
+                    files.append(entry.path)
                 elif entry.is_dir():
-                    tasks.append(self.upload_folder(entry.path, newfid))
+                    await self.upload_folder(entry.path, newfid)
                     self.dluploader.total_folders += 1
-            # Ensure all tasks are awaited and handle results/errors
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for result in results:
-                if isinstance(result, Exception):
-                    LOGGER.error(f"Task failed: {result}")
+            
+            # Process files in batches
+            for batch in self.chunk_list(files, batch_size=5):
+                await asyncio.gather(*(self.upload_file_with_error_handling(file, newfid) for file in batch))
+                self.dluploader.total_files += len(batch)
+            
             return await self.list_telegraph(newfid)
         return None
-        
+
     async def upload(self, file_path):
         stlink = None
         if await aiopath.isfile(file_path):
@@ -166,4 +165,8 @@ class Streamtape:
         if self.dluploader.is_cancelled:
             return
         raise Exception("Failed to upload file/folder to StreamTape API, Retry! or Try after sometimes...")
-        
+
+    def chunk_list(self, lst, batch_size):
+        for i in range(0, len(lst), batch_size):
+            yield lst[i:i + batch_size]
+            
