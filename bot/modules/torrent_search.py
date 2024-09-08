@@ -15,7 +15,7 @@ from bot.helper.telegram_helper.button_build import ButtonMaker
 
 PLUGINS = []
 SITES = None
-TELEGRAPH_LIMIT = 1000000
+TELEGRAPH_LIMIT = 10000000
 
 
 async def initiate_search_tools():
