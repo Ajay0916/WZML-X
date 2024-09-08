@@ -19,7 +19,7 @@ from bot.helper.telegram_helper.button_build import ButtonMaker
 async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
     headers = {
-        "Authorization": "JcYoJMRK4N92hzg4VIUjbKlOm9xC9CzS",  # Replace with your Imghippo API key
+        "Authorization": "Bearer JcYoJMRK4N92hzg4VIUjbKlOm9xC9CzS",  # Replace with your API key
     }
 
     async with aiohttp.ClientSession() as session:
