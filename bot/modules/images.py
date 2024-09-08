@@ -2,9 +2,9 @@ import logging
 import aiohttp
 import asyncio
 from aiofiles.os import remove as aioremove
-from pyrogram import Client, filters
-from pyrogram.handlers import MessageHandler, CallbackQueryHandler
-from pyrogram import filters
+from pyrogram import Client
+from pyrogram.handlers import CallbackQueryHandler, MessageHandler
+from pyrogram.filters import command, regex
 
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
@@ -40,9 +40,42 @@ async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
+    if len(message.command) > 1 and message.command[1] == "-i":
+        # Handle the `-i` argument for multiple files
+        count = int(message.command[2]) if len(message.command) > 2 else 1
+        current_message_id = message.id
+        images_to_add = []
+
+        for i in range(count):
+            async for next_msg in bot.get_chat_history(message.chat.id, offset_id=current_message_id, limit=1):
+                if next_msg.photo:
+                    if next_msg.photo.file_size > 5242880 * 2:
+                        continue  # Skip if file size is too large
+                    try:
+                        photo_dir = await next_msg.download()
+                        pic_add = await upload_to_imghippo(photo_dir)
+                        if pic_add:
+                            LOGGER.info(f"Imghippo Link : {pic_add}")
+                            images_to_add.append(pic_add)
+                        else:
+                            LOGGER.error("Failed to get a valid URL from Imghippo.")
+                        await aioremove(photo_dir)
+                    except Exception as e:
+                        LOGGER.error(f"Error processing file: {e}")
+                current_message_id = next_msg.id
+        
+        if images_to_add:
+            config_dict['IMAGES'].extend(images_to_add)
+            if DATABASE_URL:
+                await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
+            await editMessage(editable, "<b>All Images Processed!</b>")
+        else:
+            await editMessage(editable, "<b>No Valid Images Found to Process!</b>")
+        return
+
     if len(message.command) > 1 or resm and resm.text:
-        msg_text = resm.text if resm else message.command[1]
-        if not msg_text.startswith("http"):
+        msg_text = resm.text if resm else (message.command[1] if len(message.command) > 1 else None)
+        if not msg_text or not msg_text.startswith("http"):
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
         pic_add = msg_text.strip()
         await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
@@ -62,28 +95,6 @@ async def picture_add(_, message):
             await editMessage(editable, str(e))
         finally:
             await aioremove(photo_dir)
-    elif len(message.command) > 1 and message.command[1] == "-i":
-        # Process multiple files
-        count = int(message.command[2]) if len(message.command) > 2 else 1
-        start = message.id
-        for i in range(count):
-            next_message = await bot.get_chat_history(message.chat.id, offset_id=start, limit=1)
-            async for next_msg in next_message:
-                if next_msg.photo:
-                    if next_msg.photo.file_size > 5242880 * 2:
-                        continue  # Skip if file size is too large
-                    try:
-                        photo_dir = await next_msg.download()
-                        pic_add = await upload_to_imghippo(photo_dir)
-                        if pic_add:
-                            LOGGER.info(f"Imghippo Link : {pic_add}")
-                        else:
-                            LOGGER.error("Failed to get a valid URL from Imghippo.")
-                        await aioremove(photo_dir)
-                    except Exception as e:
-                        LOGGER.error(f"Error processing file: {e}")
-                start = next_msg.id
-        await editMessage(editable, "<b>All Images Processed!</b>")
     else:
         help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
@@ -157,15 +168,16 @@ async def pics_callback(_, query):
         config_dict['IMAGES'].clear()
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-        await query.answer("All Images Successfully Deleted", show_alert=True)
-        await sendMessage(message, f"<b>No Images to Show !</b> Add by /{BotCommands.AddImageCommand}")
+        await deleteMessage(message)
+        await sendMessage(message, "<b>No Photo to Show !</b> Add by /{BotCommands.AddImageCommand}")
+    elif data[2] == 'close':
         await deleteMessage(message)
     else:
-        await query.answer()
-        await deleteMessage(message)
-        if message.reply_to_message:
-            await deleteMessage(message.reply_to_message)
+        await query.answer(text="Invalid Option", show_alert=True)
 
+# Register handlers
 bot.add_handler(MessageHandler(picture_add, filters=filters.command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
+# Register handlers
 bot.add_handler(MessageHandler(pictures, filters=filters.command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
+bot.add_handler(MessageHandler(picture_add, command(f"{BotCommands.AddImageCommand}")))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=filters.regex(r'^images')))
