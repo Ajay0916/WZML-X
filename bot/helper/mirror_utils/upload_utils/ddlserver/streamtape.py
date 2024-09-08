@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import asyncio
-
+import asyncio  # Ensure asyncio is imported
 from aiofiles.os import scandir, path as aiopath
 from aiofiles import open as aiopen
 from aiohttp import ClientSession
-
 from bot import config_dict, LOGGER
 from bot.helper.ext_utils.telegraph_helper import telegraph
 
@@ -101,15 +99,21 @@ class Streamtape:
         contents = await self.list_folder(folder_id)
         if contents is None:
             return "Error: Could not retrieve folder contents."
+        
+        # Include folders
         for fid in contents['folders']:
             tg_html += f"<aside>╾──────────────────────╼</aside><br><aside><b>🗂 {fid['name']}</b></aside><br><aside>╾──────────────────────╼</aside><br>"
             tg_html += await self.list_telegraph(fid['id'], True)
+        
+        # Include files
         tg_html += "<ol>"
         for finfo in contents['files']:
             tg_html += f"""<li> <code>{finfo['name']}</code><br>🔗 <a href="https://streamtape.to/v/{finfo['linkid']}">StreamTape URL</a><br> </li>"""
         tg_html += "</ol>"
+        
         if nested:
             return tg_html
+        
         tg_html =  f"""<figure><img src='{config_dict["COVER_IMAGE"]}'></figure>""" + tg_html
         path = (await telegraph.create_page(title=f"StreamTape X", content=tg_html))["path"]
         return f"https://te.legra.ph/{path}"
@@ -126,34 +130,23 @@ class Streamtape:
                     return data.get("result")
         return None
 
-    async def upload_file_with_error_handling(self, file_path, folder_id=None, sha256=None, httponly=False):
-        try:
-            return await self.upload_file(file_path, folder_id, sha256, httponly)
-        except Exception as e:
-            LOGGER.error(f"Error uploading file {file_path}: {e}")
-            return None
-
     async def upload_folder(self, folder_path, parent_folder_id=None):
         folder_name = Path(folder_path).name
         genfolder = await self.create_folder(name=folder_name, parent=parent_folder_id)
     
         if genfolder and (newfid := genfolder.get("folderid")):
-            files = []
+            tasks = []
             for entry in await scandir(folder_path):
                 if entry.is_file():
-                    files.append(entry.path)
+                    tasks.append(self.upload_file(entry.path, newfid))
+                    self.dluploader.total_files += 1
                 elif entry.is_dir():
-                    await self.upload_folder(entry.path, newfid)
+                    tasks.append(self.upload_folder(entry.path, newfid))
                     self.dluploader.total_folders += 1
-            
-            # Process files in batches
-            for batch in self.chunk_list(files, batch_size=5):
-                await asyncio.gather(*(self.upload_file_with_error_handling(file, newfid) for file in batch))
-                self.dluploader.total_files += len(batch)
-            
+            await asyncio.gather(*tasks)  # Ensure to handle results and errors
             return await self.list_telegraph(newfid)
         return None
-
+        
     async def upload(self, file_path):
         stlink = None
         if await aiopath.isfile(file_path):
@@ -165,8 +158,4 @@ class Streamtape:
         if self.dluploader.is_cancelled:
             return
         raise Exception("Failed to upload file/folder to StreamTape API, Retry! or Try after sometimes...")
-
-    def chunk_list(self, lst, batch_size):
-        for i in range(0, len(lst), batch_size):
-            yield lst[i:i + batch_size]
-            
+        
