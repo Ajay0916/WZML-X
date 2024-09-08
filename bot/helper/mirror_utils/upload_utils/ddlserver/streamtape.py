@@ -58,14 +58,22 @@ class Streamtape:
         if self.dluploader.is_cancelled:
             return
         self.dluploader.last_uploaded = 0
-        uploaded = await self.dluploader.upload_aiohttp(upload_info["url"], file_path, file_name, {})
-        if uploaded:
-            folder_content = await self.list_folder(folder=folder_id)
-            if folder_content is None:
-                return None
-            file_id = folder_content['files'][0]['linkid']
-            await self.rename(file_id, file_name)
-            return f"https://streamtape.to/v/{file_id}"
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                uploaded = await self.dluploader.upload_aiohttp(upload_info["url"], file_path, file_name, {})
+                if uploaded:
+                    folder_content = await self.list_folder(folder=folder_id)
+                    if folder_content is None:
+                        return None
+                    file_id = folder_content['files'][0]['linkid']
+                    await self.rename(file_id, file_name)
+                    await asyncio.sleep(1)  # Add delay between uploads
+                    return f"https://streamtape.to/v/{file_id}"
+            except Exception as e:
+                LOGGER.error(f"Upload attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
         return None
 
     async def create_folder(self, name, parent=None):
@@ -118,11 +126,10 @@ class Streamtape:
         if folder is not None:
             url += f"&folder={folder}"
         async with ClientSession() as session, session.get(url) as response:
-            if response.status == 200:
-                data = await response.json()
-                LOGGER.info(f"list_folder response: {data}")
-                if data.get("status") == 200:
-                    return data.get("result")
+            data = await response.json()
+            LOGGER.info(f"list_folder response: {data}")
+            if response.status == 200 and data.get("status") == 200:
+                return data.get("result")
         return None
 
     async def upload_folder(self, folder_path, parent_folder_id=None):
@@ -130,13 +137,16 @@ class Streamtape:
         genfolder = await self.create_folder(name=folder_name, parent=parent_folder_id)
     
         if genfolder and (newfid := genfolder.get("folderid")):
-            for entry in await scandir(folder_path):
+            entries = await scandir(folder_path)
+            tasks = []
+            for entry in entries:
                 if entry.is_file():
-                    await self.upload_file(entry.path, newfid)
+                    tasks.append(self.upload_file(entry.path, newfid))
                     self.dluploader.total_files += 1
                 elif entry.is_dir():
-                    await self.upload_folder(entry.path, newfid)
+                    tasks.append(self.upload_folder(entry.path, newfid))
                     self.dluploader.total_folders += 1
+            await asyncio.gather(*tasks)  # Ensure to handle results and errors
             return await self.list_telegraph(newfid)
         return None
         
@@ -151,3 +161,4 @@ class Streamtape:
         if self.dluploader.is_cancelled:
             return
         raise Exception("Failed to upload file/folder to StreamTape API, Retry! or Try after sometimes...")
+        
