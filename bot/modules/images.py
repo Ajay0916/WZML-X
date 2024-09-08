@@ -19,7 +19,7 @@ from bot.helper.telegram_helper.button_build import ButtonMaker
 async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
     headers = {
-        "Authorization": "Bearer JcYoJMRK4N92hzg4VIUjbKlOm9xC9CzS",  # Replace with your API key
+        "Authorization": "Bearer JcYoJMRK4N92hzg4VIUjbKlOm9xC9CzS"  # Your API key
     }
 
     async with aiohttp.ClientSession() as session:
@@ -32,8 +32,8 @@ async def upload_to_imghippo(image_path):
 
             if resp.status == 200:
                 response_json = await resp.json()
-                if response_json.get("status") == "success":
-                    return response_json["data"]["url"]  # Return the uploaded image URL
+                if response_json.get("success"):
+                    return response_json.get("data", {}).get("url")  # Return the uploaded image URL
             return None
             
 
