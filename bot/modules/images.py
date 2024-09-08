@@ -7,7 +7,7 @@ from pyrogram.filters import command, regex
 
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
-from bot.helper.ext_utils.bot_utils import handleIndex, new_task
+from bot.helper.ext_utils.bot_utils import handleIndex, new_task, arg_parser
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
@@ -33,7 +33,6 @@ async def upload_to_imghippo(image_path):
                 return response_json.get("data", {}).get("url")
             return None
 
-@new_task
 async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
@@ -76,6 +75,32 @@ async def picture_add(_, message):
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
         await editMessage(editable, "<b>Failed to upload image.</b>")
+
+async def handle_picture_add_command(client, message):
+    input_list = message.text.split(' ')
+
+    arg_base = {'link': '', '-i': 1}
+
+    args = arg_parser(input_list[1:], arg_base)
+
+    try:
+        instances = int(args['-i'])
+    except Exception:
+        instances = 1
+
+    if instances > 1:
+        await asyncio.sleep(5)
+        msg = [s.strip() for s in input_list]
+        index = msg.index('-i')
+        msg[index+1] = str(instances - 1)
+        nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=message.reply_to_message_id + 1)
+        nextmsg = await sendMessage(nextmsg, " ".join(msg))
+        nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=nextmsg.id)
+        nextmsg.from_user = message.from_user
+        await asyncio.sleep(5)
+        await handle_picture_add_command(client, nextmsg)
+    else:
+        await picture_add(None, message)
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
@@ -143,7 +168,7 @@ async def pics_callback(_, query):
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
 
-bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
+bot.add_handler(MessageHandler(handle_picture_add_command, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-        
+            
