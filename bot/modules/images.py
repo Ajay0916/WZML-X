@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from asyncio import sleep as asleep
 from aiofiles.os import path as aiopath, remove as aioremove, mkdir
-from telegraph import upload_file  # This import can be removed now
 
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
@@ -24,47 +23,48 @@ async def picture_add(_, message):
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
         pic_add = msg_text.strip()
         await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
-    elif resm and resm.photo:
-        if resm.photo.file_size > 5242880 * 2:
-            return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
-        try:
-            # Get the file ID of the photo
-            photo_file_id = resm.photo.file_id
-            pic_add = f'https://t.me/{bot.username}/{photo_file_id}'
-            LOGGER.info(f"Direct Telegram Link : {pic_add}")
-        except Exception as e:
-            LOGGER.error(f"Images Error: {str(e)}")
-            await editMessage(editable, str(e))
+    elif resm:
+        if resm.photo:
+            if resm.photo.file_size > 5242880 * 2:
+                return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
+            file_id = resm.photo.file_id
+            pic_add = f'https://t.me/{bot.get_me().username}/{file_id}'
+        elif resm.document:
+            file_id = resm.document.file_id
+            pic_add = f'https://t.me/{bot.get_me().username}/{file_id}'
+        else:
+            return await editMessage(editable, "<i>Unsupported Media Type!</i>")
+        LOGGER.info(f"Telegram File Link : {pic_add}")
     else:
         help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {link}" + "</code>\n"
-        help_msg += "\n<b>By Replying to Photo on Telegram:</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {photo}" + "</code>"
+        help_msg += "\n<b>By Replying to Photo or File on Telegram:</b>"
+        help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {photo or file}" + "</code>"
         return await editMessage(editable, help_msg)
     
-    config_dict['IMAGES'].append(pic_add)
+    config_dict['FILES'].append(pic_add)
     if DATABASE_URL:
-        await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
+        await DbManger().update_config({'FILES': config_dict['FILES']})
     await asleep(1.5)
-    await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
+    await editMessage(editable, f"<b><i>Successfully Added to Files List!</i></b>\n\n<b>• Total Files : {len(config_dict['FILES'])}</b>")
 
-async def pictures(_, message):
-    if not config_dict['IMAGES']:
-        await sendMessage(message, f"<b>No Photo to Show !</b> Add by /{BotCommands.AddImageCommand}")
+async def files(_, message):
+    if not config_dict['FILES']:
+        await sendMessage(message, f"<b>No File to Show !</b> Add by /{BotCommands.AddFileCommand}")
     else:
-        to_edit = await sendMessage(message, "<i>Generating Grid of your Images...</i>")
+        to_edit = await sendMessage(message, "<i>Generating Grid of your Files...</i>")
         buttons = ButtonMaker()
         user_id = message.from_user.id
-        buttons.ibutton("<<", f"images {user_id} turn -1")
-        buttons.ibutton(">>", f"images {user_id} turn 1")
-        buttons.ibutton("Remove Image", f"images {user_id} remov 0")
-        buttons.ibutton("Close", f"images {user_id} close")
-        buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
+        buttons.ibutton("<<", f"files {user_id} turn -1")
+        buttons.ibutton(">>", f"files {user_id} turn 1")
+        buttons.ibutton("Remove File", f"files {user_id} remov 0")
+        buttons.ibutton("Close", f"files {user_id} close")
+        buttons.ibutton("Remove All", f"files {user_id} removall", 'footer')
         await deleteMessage(to_edit)
-        await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
+        await sendMessage(message, f'📁 <b>File No. : 1 / {len(config_dict["FILES"])}</b>', buttons.build_menu(2), config_dict['FILES'][0])
 
 @new_task
-async def pics_callback(_, query):
+async def files_callback(_, query):
     message = query.message
     user_id = query.from_user.id
     data = query.data.split()
@@ -73,41 +73,41 @@ async def pics_callback(_, query):
         return
     if data[2] == "turn":
         await query.answer()
-        ind = handleIndex(int(data[3]), config_dict['IMAGES'])
-        no = len(config_dict['IMAGES']) - abs(ind+1) if ind < 0 else ind + 1
-        pic_info = f'🌄 <b>Image No. : {no} / {len(config_dict["IMAGES"])}</b>'
+        ind = handleIndex(int(data[3]), config_dict['FILES'])
+        no = len(config_dict['FILES']) - abs(ind+1) if ind < 0 else ind + 1
+        file_info = f'📁 <b>File No. : {no} / {len(config_dict["FILES"])}</b>'
         buttons = ButtonMaker()
-        buttons.ibutton("<<", f"images {data[1]} turn {ind-1}")
-        buttons.ibutton(">>", f"images {data[1]} turn {ind+1}")
-        buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
-        buttons.ibutton("Close", f"images {data[1]} close")
-        buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
-        await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
+        buttons.ibutton("<<", f"files {data[1]} turn {ind-1}")
+        buttons.ibutton(">>", f"files {data[1]} turn {ind+1}")
+        buttons.ibutton("Remove File", f"files {data[1]} remov {ind}")
+        buttons.ibutton("Close", f"files {data[1]} close")
+        buttons.ibutton("Remove All", f"files {data[1]} removall", 'footer')
+        await editMessage(message, file_info, buttons.build_menu(2), config_dict['FILES'][ind])
     elif data[2] == "remov":
-        config_dict['IMAGES'].pop(int(data[3]))
+        config_dict['FILES'].pop(int(data[3]))
         if DATABASE_URL:
-            await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-        query.answer("Image Successfully Deleted", show_alert=True)
-        if len(config_dict['IMAGES']) == 0:
+            await DbManger().update_config({'FILES': config_dict['FILES']})
+        query.answer("File Successfully Deleted", show_alert=True)
+        if len(config_dict['FILES']) == 0:
             await deleteMessage(query.message)
-            await sendMessage(message, f"<b>No Photo to Show !</b> Add by /{BotCommands.AddImageCommand}")
+            await sendMessage(message, f"<b>No File to Show !</b> Add by /{BotCommands.AddFileCommand}")
             return
         ind = int(data[3])+1
-        ind = len(config_dict['IMAGES']) - abs(ind) if ind < 0 else ind
-        pic_info = f'🌄 <b>Image No. : {ind+1} / {len(config_dict["IMAGES"])}</b>'
+        ind = len(config_dict['FILES']) - abs(ind) if ind < 0 else ind
+        file_info = f'📁 <b>File No. : {ind+1} / {len(config_dict["FILES"])}</b>'
         buttons = ButtonMaker()
-        buttons.ibutton("<<", f"images {data[1]} turn {ind-1}")
-        buttons.ibutton(">>", f"images {data[1]} turn {ind+1}")
-        buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
-        buttons.ibutton("Close", f"images {data[1]} close")
-        buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
-        await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
+        buttons.ibutton("<<", f"files {data[1]} turn {ind-1}")
+        buttons.ibutton(">>", f"files {data[1]} turn {ind+1}")
+        buttons.ibutton("Remove File", f"files {data[1]} remov {ind}")
+        buttons.ibutton("Close", f"files {data[1]} close")
+        buttons.ibutton("Remove All", f"files {data[1]} removall", 'footer')
+        await editMessage(message, file_info, buttons.build_menu(2), config_dict['FILES'][ind])
     elif data[2] == 'removall':
-        config_dict['IMAGES'].clear()
+        config_dict['FILES'].clear()
         if DATABASE_URL:
-            await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-        await query.answer("All Images Successfully Deleted", show_alert=True)
-        await sendMessage(message, f"<b>No Images to Show !</b> Add by /{BotCommands.AddImageCommand}")
+            await DbManger().update_config({'FILES': config_dict['FILES']})
+        await query.answer("All Files Successfully Deleted", show_alert=True)
+        await sendMessage(message, f"<b>No Files to Show !</b> Add by /{BotCommands.AddFileCommand}")
         await deleteMessage(message)
     else:
         await query.answer()
@@ -115,7 +115,6 @@ async def pics_callback(_, query):
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
 
-bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-    
+bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddFileCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
+bot.add_handler(MessageHandler(files, filters=command(BotCommands.FilesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
+bot.add_handler(CallbackQueryHandler(files_callback, filters=regex(r'^files')))
