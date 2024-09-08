@@ -94,6 +94,12 @@ async def picture_add(_, message):
             await editMessage(editable, str(e))
         finally:
             await aioremove(photo_dir)
+    elif resm and resm.document:
+        # Handling documents (files) as well
+        if resm.document.file_size > 5242880 * 2:
+            return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
+        # Handle file download and upload if necessary
+        await editMessage(editable, "<b>Files are not supported, please upload a photo or provide a valid link.</b>")
     else:
         help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
@@ -109,6 +115,7 @@ async def picture_add(_, message):
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
         await editMessage(editable, "<b>Failed to upload image.</b>")
+        
         
 
 async def pictures(_, message):
