@@ -49,8 +49,11 @@ async def picture_add(_, message):
     else:
         image_index = None  # No specific image selected
 
+    # Ensure msg_text is properly handled
     if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
+        if msg_text is None:
+            return await editMessage(editable, "<b>No link or text found to process.</b>")
         if not msg_text.startswith("http"):
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
         pic_add = msg_text.strip()
@@ -78,7 +81,6 @@ async def picture_add(_, message):
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
         return await editMessage(editable, help_msg)
 
-    # If we have a valid pic_add, add it to config_dict['IMAGES']
     if pic_add:
         if image_index is not None and 0 <= image_index < len(config_dict['IMAGES']):
             # Insert image at the specific index if '-i' is passed
@@ -93,6 +95,7 @@ async def picture_add(_, message):
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
         await editMessage(editable, "<b>Failed to upload image.</b>")
+        
 
 @new_task
 async def pictures(_, message):
