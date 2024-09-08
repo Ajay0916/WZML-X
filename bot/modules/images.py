@@ -3,11 +3,10 @@ import aiohttp
 import asyncio
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
-from pyrogram.filters import command, regex
+from pyrogram.filters import command
 
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
-from bot.helper.ext_utils.bot_utils import handleIndex, new_task
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
@@ -20,8 +19,8 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger(__name__)
 
-# Temporary storage for messages
-temporary_storage = {}
+# List to track message IDs for processing
+message_ids_to_process = []
 
 async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
@@ -68,22 +67,20 @@ async def picture_add(_, message):
                             LOGGER.error("Failed to get a valid URL from Imghippo.")
                         await aioremove(photo_dir)
 
-                    # Store the message in temporary storage
-                    temporary_storage[message.id] = resm
+                    # Store the message ID for processing
+                    message_ids_to_process.append(message.id)
 
-                    # Process subsequent messages
+                    # Process subsequent messages based on the index
                     while index > 1:
-                        # Get the next message from the storage
-                        next_message_id = message.id + 1  # Simulate getting the next message
-                        next_message = temporary_storage.get(next_message_id)
-
+                        next_message_id = message.id + len(message_ids_to_process)  # Calculate next message ID
+                        next_message = await bot.get_messages(message.chat.id, next_message_id)
+                        
                         if next_message:
-                            resm = next_message
-                            if resm.photo:
-                                if resm.photo.file_size > 5242880 * 2:
+                            if next_message.photo:
+                                if next_message.photo.file_size > 5242880 * 2:
                                     continue
                                 try:
-                                    photo_dir = await resm.download()
+                                    photo_dir = await next_message.download()
                                     await editMessage(editable, f"<b>Now, Uploading Image {index} to <code>Imghippo</code>, Please Wait...</b>")
                                     await asyncio.sleep(1)
                                     pic_add = await upload_to_imghippo(photo_dir)
