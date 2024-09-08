@@ -239,6 +239,10 @@ if len(MEGA_EMAIL) == 0 or len(MEGA_PASSWORD) == 0:
     log_warning('MEGA Credentials not provided!')
     MEGA_EMAIL = ''
     MEGA_PASSWORD = ''
+
+IMGAPI = environ.get('IMGAPI', '')
+if len(IMGAPI) == 0:
+    IMGAPI = ''
     
 GDTOT_CRYPT = environ.get('GDTOT_CRYPT', '')
 if len(GDTOT_CRYPT) == 0:
@@ -647,6 +651,7 @@ config_dict = {'ANIME_TEMPLATE': ANIME_TEMPLATE,
                'TITLE_NAME': TITLE_NAME,
                'TIMEZONE': TIMEZONE,
                'GD_INFO': GD_INFO,
+               'IMGAPI': IMGAPI,
                'GDTOT_CRYPT': GDTOT_CRYPT,
                'JIODRIVE_TOKEN': JIODRIVE_TOKEN,
                'EQUAL_SPLITS': EQUAL_SPLITS,
