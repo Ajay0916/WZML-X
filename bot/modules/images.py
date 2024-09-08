@@ -3,7 +3,7 @@ import aiohttp
 import asyncio
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
-from pyrogram.filters import command, regex
+from pyrogram.filters import command, Filters
 
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
@@ -39,37 +39,15 @@ async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
-    # Parse arguments
     args = arg_parser(message.text, "-i")
-    if args and "-i" in args:
-        index = args["-i"]
-        if index.isdigit():
-            index = int(index)
-            messages = [message.reply_to_message] + await get_next_messages(message, index)
-            for i, msg in enumerate(messages):
-                if msg.photo:
-                    if msg.photo.file_size > 5242880 * 2:
-                        await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
-                        continue
-                    try:
-                        photo_dir = await msg.download()
-                        await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
-                        await asyncio.sleep(1)
-                        pic_add = await upload_to_imghippo(photo_dir)
-                        if pic_add:
-                            LOGGER.info(f"Imghippo Link : {pic_add}")
-                        else:
-                            raise Exception("Failed to get a valid URL from Imghippo.")
-                    except Exception as e:
-                        await editMessage(editable, str(e))
-                    finally:
-                        await aioremove(photo_dir)
-                else:
-                    await editMessage(editable, "<i>Reply must be a photo or URL</i>")
-                    continue
-        else:
-            await editMessage(editable, "<b>Invalid index format. Use -i followed by a number.</b>")
-            return
+    index = args.get("-i") if args else None
+
+    if len(message.command) > 1 or resm and resm.text:
+        msg_text = resm.text if resm else message.command[1]
+        if not msg_text.startswith("http"):
+            return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
+        pic_add = msg_text.strip()
+        await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
     elif resm and resm.photo:
         if resm.photo.file_size > 5242880 * 2:
             return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
@@ -94,20 +72,18 @@ async def picture_add(_, message):
         return await editMessage(editable, help_msg)
     
     if pic_add:
-        config_dict['IMAGES'].append(pic_add)
+        if index:
+            index = int(index)
+            # Update the list of images
+            config_dict['IMAGES'].insert(index, pic_add)
+        else:
+            config_dict['IMAGES'].append(pic_add)
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
         await asyncio.sleep(1.5)
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
         await editMessage(editable, "<b>Failed to upload image.</b>")
-
-async def get_next_messages(message, index):
-    messages = []
-    chat_id = message.chat.id
-    async for msg in bot.get_chat_history(chat_id, offset_id=message.message_id, limit=index + 1):
-        messages.append(msg)
-    return messages[index:]
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
@@ -177,5 +153,4 @@ async def pics_callback(_, query):
 
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(CallbackQueryHandler(pics_callback, pattern=regex('images')))
-            
+bot.add_handler(CallbackQueryHandler(pics_callback, Filters.regex('images')))
