@@ -1,4 +1,5 @@
 import aiohttp
+import asyncio
 import logging
 from aiofiles.os import path as aiopath, remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
@@ -50,7 +51,7 @@ async def picture_add(_, message):
         try:
             photo_dir = await resm.download()
             await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
-            await asleep(1)
+            await asyncio.sleep(1)
             pic_add = await upload_to_imghippo(photo_dir)
             if pic_add:
                 LOGGER.info(f"Imghippo Link : {pic_add}")
@@ -72,7 +73,7 @@ async def picture_add(_, message):
         config_dict['IMAGES'].append(pic_add)
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-        await asleep(1.5)
+        await asyncio.sleep(1.5)
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
         await editMessage(editable, "<b>Failed to upload image.</b>")
