@@ -20,6 +20,9 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger(__name__)
 
+# Temporary storage for messages
+temporary_storage = {}
+
 async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
     data = aiohttp.FormData()
@@ -49,7 +52,6 @@ async def picture_add(_, message):
                     raise ValueError("Index must be a positive integer")
 
                 if resm:
-                    # Process the reply message
                     if resm.photo:
                         if resm.photo.file_size > 5242880 * 2:
                             return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
@@ -66,33 +68,39 @@ async def picture_add(_, message):
                             LOGGER.error("Failed to get a valid URL from Imghippo.")
                         await aioremove(photo_dir)
 
+                    # Store the message in temporary storage
+                    temporary_storage[message.id] = resm
+
                     # Process subsequent messages
                     while index > 1:
-                        async for next_message in bot.get_chat_history(message.chat.id, offset_id=message.id, limit=1):
-                            if next_message:
-                                resm = next_message
-                                if resm.photo:
-                                    if resm.photo.file_size > 5242880 * 2:
-                                        continue
-                                    try:
-                                        photo_dir = await resm.download()
-                                        await editMessage(editable, f"<b>Now, Uploading Image {index} to <code>Imghippo</code>, Please Wait...</b>")
-                                        await asyncio.sleep(1)
-                                        pic_add = await upload_to_imghippo(photo_dir)
-                                        if pic_add:
-                                            pic_adds.append(pic_add)
-                                            LOGGER.info(f"Imghippo Link for Image {index}: {pic_add}")
-                                        else:
-                                            LOGGER.error(f"Failed to get a valid URL for Image {index} from Imghippo.")
-                                        await aioremove(photo_dir)
-                                        index -= 1
-                                    except Exception as e:
-                                        await editMessage(editable, str(e))
-                                else:
-                                    await editMessage(editable, "<b>Expected a photo in the next message</b>")
+                        # Get the next message from the storage
+                        next_message_id = message.id + 1  # Simulate getting the next message
+                        next_message = temporary_storage.get(next_message_id)
+
+                        if next_message:
+                            resm = next_message
+                            if resm.photo:
+                                if resm.photo.file_size > 5242880 * 2:
+                                    continue
+                                try:
+                                    photo_dir = await resm.download()
+                                    await editMessage(editable, f"<b>Now, Uploading Image {index} to <code>Imghippo</code>, Please Wait...</b>")
+                                    await asyncio.sleep(1)
+                                    pic_add = await upload_to_imghippo(photo_dir)
+                                    if pic_add:
+                                        pic_adds.append(pic_add)
+                                        LOGGER.info(f"Imghippo Link for Image {index}: {pic_add}")
+                                    else:
+                                        LOGGER.error(f"Failed to get a valid URL for Image {index} from Imghippo.")
+                                    await aioremove(photo_dir)
+                                    index -= 1
+                                except Exception as e:
+                                    await editMessage(editable, str(e))
                             else:
-                                await editMessage(editable, "<b>No more messages to process</b>")
-                                break
+                                await editMessage(editable, "<b>Expected a photo in the next message</b>")
+                        else:
+                            await editMessage(editable, "<b>No more messages to process</b>")
+                            break
                 else:
                     await editMessage(editable, "<b>No file to reply to</b>")
             except (IndexError, ValueError) as e:
@@ -179,7 +187,7 @@ async def pics_callback(_, query):
         config_dict['IMAGES'].pop(int(data[3]))
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-        query.answer("Image Successfully Deleted", show_alert=True)
+        await query.answer("Image Successfully Deleted", show_alert=True)
         if len(config_dict['IMAGES']) == 0:
             await deleteMessage(query.message)
             await sendMessage(message, f"<b>No Photo to Show !</b> Add by /{BotCommands.AddImageCommand}")
@@ -209,4 +217,3 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-            
