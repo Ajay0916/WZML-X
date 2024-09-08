@@ -39,42 +39,11 @@ async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
-    # Parse the arguments from the command text
+    # Parse arguments
     args = arg_parser(message.text, "-i")
-    index = args.get("-i", None)
+    index = int(args.get("-i", -1)) if args.get("-i") else None
 
-    if index:
-        try:
-            index = int(index)
-        except ValueError:
-            return await editMessage(editable, "<b>Invalid index format. Use -i followed by a number.</b>")
-
-        # Fetch the message from chat history
-        async for msg in bot.get_chat_history(message.chat.id, limit=10):
-            if msg.message_id == index:
-                if msg.photo:
-                    if msg.photo.file_size > 5242880 * 2:
-                        return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
-                    try:
-                        photo_dir = await msg.download()
-                        await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
-                        await asyncio.sleep(1)
-                        pic_add = await upload_to_imghippo(photo_dir)
-                        if pic_add:
-                            LOGGER.info(f"Imghippo Link : {pic_add}")
-                        else:
-                            raise Exception("Failed to get a valid URL from Imghippo.")
-                    except Exception as e:
-                        await editMessage(editable, str(e))
-                    finally:
-                        await aioremove(photo_dir)
-                else:
-                    return await editMessage(editable, "<b>Message does not contain a photo.</b>")
-                break
-        else:
-            return await editMessage(editable, "<b>Image with the specified index not found.</b>")
-    
-    elif len(message.command) > 1 or resm and resm.text:
+    if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
         if not msg_text.startswith("http"):
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
@@ -104,7 +73,10 @@ async def picture_add(_, message):
         return await editMessage(editable, help_msg)
     
     if pic_add:
-        config_dict['IMAGES'].append(pic_add)
+        if index is not None and index < len(config_dict['IMAGES']):
+            config_dict['IMAGES'].insert(index, pic_add)
+        else:
+            config_dict['IMAGES'].append(pic_add)
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
         await asyncio.sleep(1.5)
@@ -169,13 +141,14 @@ async def pics_callback(_, query):
         config_dict['IMAGES'].clear()
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-        await query.answer("All Images Successfully Deleted", show_alert=True)
-        await deleteMessage(message)
+        query.answer("All Images Successfully Deleted", show_alert=True)
+        await deleteMessage(query.message)
         await sendMessage(message, f"<b>No Photo to Show !</b> Add by /{BotCommands.AddImageCommand}")
     elif data[2] == 'close':
-        await deleteMessage(message)
-        await query.answer("Closed", show_alert=True)
+        await deleteMessage(query.message)
 
+# Add handlers
 bot.add_handler(MessageHandler(picture_add, command(BotCommands.AddImageCommand)))
-bot.add_handler(MessageHandler(pictures, command(BotCommands.ShowImageCommand)))
-bot.add_handler(CallbackQueryHandler(pics_callback, regex('images')))
+bot.add_handler(MessageHandler(pictures, command(BotCommands.ShowImageCommand)))  # Ensure this is correct
+bot.add_handler(CallbackQueryHandler(pics_callback, regex(r'^images')))
+        
