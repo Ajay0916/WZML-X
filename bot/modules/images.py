@@ -1,7 +1,7 @@
 import aiohttp
 import asyncio
 import logging
-from aiofiles.os import path as aiopath, remove as aioremove
+from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
 
@@ -24,14 +24,14 @@ async def upload_to_imghippo(image_path):
 
     async with aiohttp.ClientSession() as session:
         async with session.post(upload_url, data=data) as resp:
-            response_text = await resp.text()  # Capture the raw response text
-            LOGGER.info(f"Imghippo Response Status: {resp.status}")  # Log the status code
-            LOGGER.info(f"Imghippo Response Text: {response_text}")  # Log the raw response text
+            response_text = await resp.text()
+            LOGGER.info(f"Imghippo Response Status: {resp.status}")
+            LOGGER.info(f"Imghippo Response Text: {response_text}")
 
             if resp.status == 200:
                 response_json = await resp.json()
                 if response_json.get("success"):
-                    return response_json.get("data", {}).get("url")  # Return the uploaded image URL
+                    return response_json.get("data", {}).get("url")
             return None
 
 @new_task
@@ -39,6 +39,7 @@ async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
+
     if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
         if not msg_text.startswith("http"):
@@ -64,9 +65,9 @@ async def picture_add(_, message):
             await aioremove(photo_dir)
     else:
         help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {link}" + "</code>\n"
-        help_msg += "\n<b>By Replying to Photo on Telegram:</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {photo}" + "</code>"
+        help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
+        help_msg += "<b>By Replying to Photo on Telegram:</b>"
+        help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
         return await editMessage(editable, help_msg)
     
     if pic_add:
@@ -98,9 +99,11 @@ async def pics_callback(_, query):
     message = query.message
     user_id = query.from_user.id
     data = query.data.split()
+
     if user_id != int(data[1]):
         await query.answer(text="Not Authorized User!", show_alert=True)
         return
+
     if data[2] == "turn":
         await query.answer()
         ind = handleIndex(int(data[3]), config_dict['IMAGES'])
@@ -148,4 +151,3 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-        
