@@ -67,24 +67,26 @@ async def picture_add(_, message):
                         await aioremove(photo_dir)
 
                     # Process subsequent messages
-                    for i in range(index - 1):
-                        next_message = await bot.get_chat_history(message.chat.id, offset_id=message.id, limit=1)
+                    async for next_message in bot.get_chat_history(message.chat.id, offset_id=message.id, limit=1):
+                        if index <= 1:
+                            break
                         if next_message:
-                            resm = next_message[0]
+                            resm = next_message
                             if resm.photo:
                                 if resm.photo.file_size > 5242880 * 2:
                                     continue
                                 try:
                                     photo_dir = await resm.download()
-                                    await editMessage(editable, f"<b>Now, Uploading Image {i + 2} to <code>Imghippo</code>, Please Wait...</b>")
+                                    await editMessage(editable, f"<b>Now, Uploading Image {index} to <code>Imghippo</code>, Please Wait...</b>")
                                     await asyncio.sleep(1)
                                     pic_add = await upload_to_imghippo(photo_dir)
                                     if pic_add:
                                         pic_adds.append(pic_add)
-                                        LOGGER.info(f"Imghippo Link for Image {i + 2}: {pic_add}")
+                                        LOGGER.info(f"Imghippo Link for Image {index}: {pic_add}")
                                     else:
-                                        LOGGER.error(f"Failed to get a valid URL for Image {i + 2} from Imghippo.")
+                                        LOGGER.error(f"Failed to get a valid URL for Image {index} from Imghippo.")
                                     await aioremove(photo_dir)
+                                    index -= 1
                                 except Exception as e:
                                     await editMessage(editable, str(e))
                             else:
