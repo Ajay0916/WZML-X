@@ -11,6 +11,7 @@ from time import time
 from html import escape
 from uuid import uuid4
 from subprocess import run as srun
+import psutil
 from psutil import disk_usage, disk_io_counters, Process, cpu_percent, swap_memory, cpu_count, cpu_freq, getloadavg, virtual_memory, net_io_counters, boot_time
 from asyncio import create_subprocess_exec, create_subprocess_shell, run_coroutine_threadsafe, sleep
 from asyncio.subprocess import PIPE
@@ -28,11 +29,12 @@ from pyrogram.errors import PeerIdInvalid
 from bot.helper.ext_utils.db_handler import DbManger
 from bot.helper.themes import BotTheme
 from bot.version import get_version
-from bot import OWNER_ID, bot_name, bot_cache, DATABASE_URL, LOGGER, get_client, aria2, download_dict, download_dict_lock, botStartTime, user_data, config_dict, bot_loop, extra_buttons, user
+from bot import *
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.button_build import ButtonMaker
 from bot.helper.ext_utils.telegraph_helper import telegraph
 from bot.helper.ext_utils.shortners import short_url
+from telegram.ext import CallbackQueryHandler
 
 THREADPOOL   = ThreadPoolExecutor(max_workers=1000)
 MAGNET_REGEX = r'magnet:\?xt=urn:(btih|btmh):[a-zA-Z0-9]*\s*'
@@ -150,6 +152,52 @@ def get_progress_bar_string(pct):
    # p_str += '□' * (12 - cFull)
     p_str = f" ⠧{p_str}⠹"
     return p_str
+
+def progress_bar(percentage):
+    p_used = '⬢'
+    p_total = '⬡'
+    if isinstance(percentage, str):
+        return '-'
+    try:
+        percentage=int(percentage)
+    except:
+        percentage = 0
+    return ''.join(
+        p_used if i <= percentage // 10 else p_total for i in range(1, 11)
+    )
+
+ONE, TWO, THREE = range(3)
+
+def pop_up_stats(update, context):
+    query = update.callback_query
+    stats = bot_sys_stats()
+    query.answer(text=stats, show_alert=True)
+
+def bot_sys_stats():
+    currentTime = get_readable_time(time() - botStartTime)
+    total, used, free, disk = disk_usage('/')
+    disk_t = get_readable_file_size(total)
+    disk_f = get_readable_file_size(free)
+    memory = virtual_memory()
+    mem_p = memory.percent
+    recv = get_readable_file_size(psutil.net_io_counters().bytes_recv)
+    sent = get_readable_file_size(psutil.net_io_counters().bytes_sent)
+    cpuUsage = cpu_percent(interval=1)
+    return f"""
+BOT SYSTEM STATS
+CPU:  {progress_bar(cpuUsage)} {cpuUsage}%
+RAM: {progress_bar(mem_p)} {mem_p}%
+DISK: {progress_bar(disk)} {disk}%
+T: {disk_t} | F: {disk_f}
+Working For: {currentTime}
+T-DL: {recv} | T-UL: {sent}
+Made with ❤️ by Dawn
+"""
+
+#---Thanks for deleting my name ❤️ Appreciate it---#
+#---Remove this line too, who cares---#
+
+dispatcher.add_handler(CallbackQueryHandler(pop_up_stats, pattern=f"^{str(THREE)}$"))
 
 
 def get_all_versions():
@@ -287,6 +335,8 @@ def get_readable_message():
     msg += BotTheme('FOOTER')
     buttons = ButtonMaker()
     buttons.ibutton(BotTheme('REFRESH', Page=f"{PAGE_NO}/{PAGES}"), "status ref")
+    buttons.ibutton("Statistics", str(THREE))
+    button = buttons.build_menu(2)
     if tasks > STATUS_LIMIT:
         if config_dict['BOT_MAX_TASKS']:
             msg += BotTheme('BOT_TASKS', Tasks=tasks, Ttask=config_dict['BOT_MAX_TASKS'], Free=config_dict['BOT_MAX_TASKS']-tasks)
@@ -295,6 +345,7 @@ def get_readable_message():
         buttons = ButtonMaker()
         buttons.ibutton(BotTheme('PREVIOUS'), "status pre")
         buttons.ibutton(BotTheme('REFRESH', Page=f"{PAGE_NO}/{PAGES}"), "status ref")
+        buttons.sbutton("Statistics", str(THREE))
         buttons.ibutton(BotTheme('NEXT'), "status nex")
     button = buttons.build_menu(3)
     msg += BotTheme('Cpu', cpu=cpu_percent())
