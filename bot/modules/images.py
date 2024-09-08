@@ -151,6 +151,10 @@ async def pics_callback(_, query):
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
 
+# Replace with a custom filter function
+def filter_images_callback(query):
+    return query.data.startswith("images")
+
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(CallbackQueryHandler(pics_callback, Filter.regex('images')))
+bot.add_handler(CallbackQueryHandler(pics_callback, filter_images_callback))
