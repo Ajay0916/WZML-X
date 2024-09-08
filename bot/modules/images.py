@@ -4,6 +4,7 @@ import asyncio
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
+
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
 from bot.helper.ext_utils.bot_utils import handleIndex, new_task
@@ -38,24 +39,62 @@ async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
-    if '-i' in message.text:
+    # Process -i argument for selecting a message index
+    if len(message.command) > 1 and message.command[1].startswith('-i'):
         try:
-            index = int(message.text.split('-i')[-1].strip())
-            if index < 0:
-                raise ValueError("Index must be a non-negative integer.")
-            if index >= len(config_dict['IMAGES']):
-                raise IndexError("Index out of range.")
-            pic_add = config_dict['IMAGES'][index]
-            await editMessage(editable, f"<b>Using Image at Index {index} :</b> <code>{pic_add}</code>")
-        except (ValueError, IndexError) as e:
-            await editMessage(editable, f"<b>Invalid index format. Use -i followed by a number.</b>")
-            LOGGER.error(f"Invalid index error: {e}")
+            index = int(message.command[1][2:].strip())
+        except ValueError:
+            return await editMessage(editable, "<b>Invalid index format. Use -i followed by a number.</b>")
+
+        # Ensure the index is valid and within the range
+        if index < 0:
+            return await editMessage(editable, "<b>Index must be a positive number.</b>")
+
+        if resm and resm.photo:
+            # Fetch the messages from the chat history starting from the replied message
+            try:
+                messages = []
+                async for msg in message.chat.get_chat_history(limit=100):
+                    if msg.message_id >= resm.message_id:
+                        messages.append(msg)
+                        if len(messages) >= index:
+                            break
+
+                if len(messages) < index:
+                    return await editMessage(editable, "<b>Not enough messages found.</b>")
+
+                # Process the selected messages
+                for i in range(index):
+                    msg = messages[i]
+                    if msg.photo:
+                        try:
+                            photo_dir = await msg.download()
+                            await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
+                            await asyncio.sleep(1)
+                            pic_add = await upload_to_imghippo(photo_dir)
+                            if pic_add:
+                                LOGGER.info(f"Imghippo Link : {pic_add}")
+                            else:
+                                raise Exception("Failed to get a valid URL from Imghippo.")
+                        except Exception as e:
+                            await editMessage(editable, str(e))
+                        finally:
+                            await aioremove(photo_dir)
+                    else:
+                        await editMessage(editable, "<b>Selected message does not contain a photo.</b>")
+            except Exception as e:
+                await editMessage(editable, str(e))
+        else:
+            await editMessage(editable, "<b>Reply to a message with a photo or provide a valid index.</b>")
+
+    # Handle URL or photo attachment
     elif len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
         if not msg_text.startswith("http"):
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
         pic_add = msg_text.strip()
         await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+    
     elif resm and resm.photo:
         if resm.photo.file_size > 5242880 * 2:
             return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
@@ -72,13 +111,12 @@ async def picture_add(_, message):
             await editMessage(editable, str(e))
         finally:
             await aioremove(photo_dir)
+    
     else:
         help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
         help_msg += "<b>By Replying to Photo on Telegram:</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
-        help_msg += "\n<b>Use Index with -i to select an existing image:</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand} -i {{index}}</code>"
         return await editMessage(editable, help_msg)
     
     if pic_add:
@@ -159,3 +197,4 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+                    
