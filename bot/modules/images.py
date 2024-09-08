@@ -39,89 +39,80 @@ async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
-    # Check if '-i' argument is passed
-    if '-i' in message.command:
-        try:
-            index = message.command.index('-i') + 1
-            image_index = int(message.command[index])  # Expecting an integer value after '-i'
-        except (IndexError, ValueError):
-            return await editMessage(editable, "<b>Invalid argument after -i. It should be an integer.</b>")
-    else:
-        image_index = None  # No specific image selected
-
-    # Ensure msg_text is properly handled
-    if len(message.command) > 1 or resm and resm.text:
-        msg_text = resm.text if resm else message.command[1]
-        if msg_text is None:
-            return await editMessage(editable, "<b>No link or text found to process.</b>")
-        if not msg_text.startswith("http"):
-            return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
-        pic_add = msg_text.strip()
-        await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
-    elif resm and resm.photo:
-        if resm.photo.file_size > 5242880 * 2:
-            return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
-        try:
-            photo_dir = await resm.download()
-            await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
-            await asyncio.sleep(1)
-            pic_add = await upload_to_imghippo(photo_dir)
-            if pic_add:
-                LOGGER.info(f"Imghippo Link : {pic_add}")
+    if len(message.command) > 1:
+        if '-i' in message.command:
+            try:
+                index = message.command.index('-i')
+                pic_add = message.command[index + 1].strip()
+                if not pic_add.startswith("http"):
+                    raise ValueError("Invalid URL")
+                await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+            except (IndexError, ValueError):
+                return await editMessage(editable, "<b>Invalid URL provided with -i argument</b>")
+        else:
+            msg_text = message.command[1]
+            if not msg_text.startswith("http"):
+                return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
+            pic_add = msg_text.strip()
+            await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+    elif resm:
+        if '-i' in message.command:
+            if resm.photo:
+                if resm.photo.file_size > 5242880 * 2:
+                    return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
+                try:
+                    photo_dir = await resm.download()
+                    await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
+                    await asyncio.sleep(1)
+                    pic_add = await upload_to_imghippo(photo_dir)
+                    if pic_add:
+                        LOGGER.info(f"Imghippo Link : {pic_add}")
+                    else:
+                        raise Exception("Failed to get a valid URL from Imghippo.")
+                except Exception as e:
+                    await editMessage(editable, str(e))
+                finally:
+                    await aioremove(photo_dir)
             else:
-                raise Exception("Failed to get a valid URL from Imghippo.")
-        except Exception as e:
-            await editMessage(editable, str(e))
-        finally:
-            await aioremove(photo_dir)
+                return await editMessage(editable, "<b>Replying to a photo is required when using -i argument</b>")
+        elif resm.text and resm.text.startswith("http"):
+            pic_add = resm.text.strip()
+            await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+        else:
+            help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
+            help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
+            help_msg += "<b>By Replying to Photo on Telegram:</b>"
+            help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
+            return await editMessage(editable, help_msg)
     else:
         help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
         help_msg += "<b>By Replying to Photo on Telegram:</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
         return await editMessage(editable, help_msg)
-
+    
     if pic_add:
-        if image_index is not None and 0 <= image_index < len(config_dict['IMAGES']):
-            # Insert image at the specific index if '-i' is passed
-            config_dict['IMAGES'].insert(image_index, pic_add)
-        else:
-            # Default behavior: add the image to the end
-            config_dict['IMAGES'].append(pic_add)
-
+        config_dict['IMAGES'].append(pic_add)
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
         await asyncio.sleep(1.5)
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
         await editMessage(editable, "<b>Failed to upload image.</b>")
-        
 
-@new_task
 async def pictures(_, message):
     if not config_dict['IMAGES']:
         await sendMessage(message, f"<b>No Photo to Show !</b> Add by /{BotCommands.AddImageCommand}")
     else:
-        # Check if '-i' argument is passed
-        if '-i' in message.command:
-            try:
-                index = message.command.index('-i') + 1
-                image_index = int(message.command[index])
-            except (IndexError, ValueError):
-                return await sendMessage(message, "<b>Invalid argument after -i. It should be an integer.</b>")
-        else:
-            image_index = 0  # Default: show the first image
-
-        if 0 <= image_index < len(config_dict['IMAGES']):
-            pic_info = f'🌄 <b>Image No. : {image_index + 1} / {len(config_dict["IMAGES"])}</b>'
-            buttons = ButtonMaker()
-            buttons.ibutton("<<", f"images {message.from_user.id} turn {image_index - 1}")
-            buttons.ibutton(">>", f"images {message.from_user.id} turn {image_index + 1}")
-            buttons.ibutton("Remove Image", f"images {message.from_user.id} remov {image_index}")
-            buttons.ibutton("Close", f"images {message.from_user.id} close")
-            await sendMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][image_index])
-        else:
-            await sendMessage(message, f"<b>Invalid image index. Please use an index between 1 and {len(config_dict['IMAGES'])}</b>")
+        to_edit = await sendMessage(message, "<i>Generating Grid of your Images...</i>")
+        buttons = ButtonMaker()
+        user_id = message.from_user.id
+        buttons.ibutton("<<", f"images {user_id} turn -1")
+        buttons.ibutton(">>", f"images {user_id} turn 1")
+        buttons.ibutton("Remove Image", f"images {user_id} remov 0")
+        buttons.ibutton("Close", f"images {user_id} close")
+        await deleteMessage(to_edit)
+        await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
 
 @new_task
 async def pics_callback(_, query):
@@ -169,8 +160,13 @@ async def pics_callback(_, query):
         await query.answer("All Images Successfully Deleted", show_alert=True)
         await sendMessage(message, f"<b>No Images to Show !</b> Add by /{BotCommands.AddImageCommand}")
         await deleteMessage(message)
+    else:
+        await query.answer()
+        await deleteMessage(message)
+        if message.reply_to_message:
+            await deleteMessage(message.reply_to_message)
 
-bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.owner))
-bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.owner))
-bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex("^images")))
-            
+bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
+bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
+bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+                
