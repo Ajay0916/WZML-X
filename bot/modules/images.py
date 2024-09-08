@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-from asyncio import sleep as asleep
 import aiohttp
 import logging
 from aiofiles.os import path as aiopath, remove as aioremove
@@ -19,15 +17,12 @@ logging.basicConfig(level=logging.INFO)
 
 async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
-    headers = {
-        "Content-Type": "multipart/form-data"
-    }
     data = aiohttp.FormData()
     data.add_field('file', open(image_path, 'rb'), filename=image_path)
     data.add_field('api_key', 'JcYoJMRK4N92hzg4VIUjbKlOm9xC9CzS')  # API key as form data
 
     async with aiohttp.ClientSession() as session:
-        async with session.post(upload_url, headers=headers, data=data) as resp:
+        async with session.post(upload_url, data=data) as resp:
             response_text = await resp.text()  # Capture the raw response text
             LOGGER.info(f"Imghippo Response Status: {resp.status}")  # Log the status code
             LOGGER.info(f"Imghippo Response Text: {response_text}")  # Log the raw response text
@@ -152,4 +147,4 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-    
+        
