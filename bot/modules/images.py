@@ -176,8 +176,5 @@ async def pics_callback(_, query):
         await query.answer(text="Invalid Option", show_alert=True)
 
 # Register handlers
-bot.add_handler(MessageHandler(picture_add, filters=filters.command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-# Register handlers
-bot.add_handler(MessageHandler(pictures, filters=filters.command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(picture_add, command(f"{BotCommands.AddImageCommand}")))
-bot.add_handler(CallbackQueryHandler(pics_callback, filters=filters.regex(r'^images')))
+bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
