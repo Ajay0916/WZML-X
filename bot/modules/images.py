@@ -67,33 +67,32 @@ async def picture_add(_, message):
                         await aioremove(photo_dir)
 
                     # Process subsequent messages
-                    async for next_message in bot.get_chat_history(message.chat.id, offset_id=message.id, limit=1):
-                        if index <= 1:
-                            break
-                        if next_message:
-                            resm = next_message
-                            if resm.photo:
-                                if resm.photo.file_size > 5242880 * 2:
-                                    continue
-                                try:
-                                    photo_dir = await resm.download()
-                                    await editMessage(editable, f"<b>Now, Uploading Image {index} to <code>Imghippo</code>, Please Wait...</b>")
-                                    await asyncio.sleep(1)
-                                    pic_add = await upload_to_imghippo(photo_dir)
-                                    if pic_add:
-                                        pic_adds.append(pic_add)
-                                        LOGGER.info(f"Imghippo Link for Image {index}: {pic_add}")
-                                    else:
-                                        LOGGER.error(f"Failed to get a valid URL for Image {index} from Imghippo.")
-                                    await aioremove(photo_dir)
-                                    index -= 1
-                                except Exception as e:
-                                    await editMessage(editable, str(e))
+                    while index > 1:
+                        async for next_message in bot.get_chat_history(message.chat.id, offset_id=message.id, limit=1):
+                            if next_message:
+                                resm = next_message
+                                if resm.photo:
+                                    if resm.photo.file_size > 5242880 * 2:
+                                        continue
+                                    try:
+                                        photo_dir = await resm.download()
+                                        await editMessage(editable, f"<b>Now, Uploading Image {index} to <code>Imghippo</code>, Please Wait...</b>")
+                                        await asyncio.sleep(1)
+                                        pic_add = await upload_to_imghippo(photo_dir)
+                                        if pic_add:
+                                            pic_adds.append(pic_add)
+                                            LOGGER.info(f"Imghippo Link for Image {index}: {pic_add}")
+                                        else:
+                                            LOGGER.error(f"Failed to get a valid URL for Image {index} from Imghippo.")
+                                        await aioremove(photo_dir)
+                                        index -= 1
+                                    except Exception as e:
+                                        await editMessage(editable, str(e))
+                                else:
+                                    await editMessage(editable, "<b>Expected a photo in the next message</b>")
                             else:
-                                await editMessage(editable, "<b>Expected a photo in the next message</b>")
-                        else:
-                            await editMessage(editable, "<b>No more messages to process</b>")
-                            break
+                                await editMessage(editable, "<b>No more messages to process</b>")
+                                break
                 else:
                     await editMessage(editable, "<b>No file to reply to</b>")
             except (IndexError, ValueError) as e:
@@ -210,3 +209,4 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+            
