@@ -3,7 +3,6 @@ from asyncio import sleep as asleep
 import aiohttp
 import logging
 from aiofiles.os import path as aiopath, remove as aioremove
-from telegraph import upload_file
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
 
@@ -21,24 +20,23 @@ logging.basicConfig(level=logging.INFO)
 async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
     headers = {
-        "Authorization": "Bearer JcYoJMRK4N92hzg4VIUjbKlOm9xC9CzS"  # Your API key
+        "api_key": "JcYoJMRK4N92hzg4VIUjbKlOm9xC9CzS"  # Replace with your API key
     }
 
     async with aiohttp.ClientSession() as session:
-        with open(image_path, 'rb') as file:
-            data = aiohttp.FormData()
-            data.add_field('file', file, filename=image_path)
+        data = aiohttp.FormData()
+        data.add_field('file', open(image_path, 'rb'), filename=image_path)
 
-            async with session.post(upload_url, headers=headers, data=data) as resp:
-                response_text = await resp.text()  # Capture the raw response text
-                LOGGER.info(f"Imghippo Response Status: {resp.status}")  # Log the status code
-                LOGGER.info(f"Imghippo Response Text: {response_text}")  # Log the raw response text
+        async with session.post(upload_url, headers=headers, data=data) as resp:
+            response_text = await resp.text()  # Capture the raw response text
+            LOGGER.info(f"Imghippo Response Status: {resp.status}")  # Log the status code
+            LOGGER.info(f"Imghippo Response Text: {response_text}")  # Log the raw response text
 
-                if resp.status == 200:
-                    response_json = await resp.json()
-                    if response_json.get("success"):
-                        return response_json.get("data", {}).get("url")  # Return the uploaded image URL
-                return None
+            if resp.status == 200:
+                response_json = await resp.json()
+                if response_json.get("success"):
+                    return response_json.get("data", {}).get("url")  # Return the uploaded image URL
+            return None
 
 @new_task
 async def picture_add(_, message):
@@ -154,3 +152,4 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+        
