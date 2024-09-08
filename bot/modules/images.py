@@ -2,6 +2,9 @@
 from asyncio import sleep as asleep
 from aiofiles.os import path as aiopath, remove as aioremove, mkdir
 from telegraph import upload_file
+import aiohttp
+import re
+from bs4 import BeautifulSoup
 
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
@@ -14,16 +17,41 @@ from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
 from bot.helper.telegram_helper.button_build import ButtonMaker
 
+async def fetch_image_urls(folder_url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(folder_url) as response:
+            content = await response.text()
+            # Extract URLs ending with common image file extensions
+            image_urls = re.findall(r'https?://\S+\.(?:jpg|jpeg|png|gif)', content)
+            return image_urls
+
 @new_task
 async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
-        if not msg_text.startswith("http"):
-            return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
-        pic_add = msg_text.strip()
-        await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+        if msg_text.startswith("http"):
+            if msg_text.endswith("/Pics/"):  # Check if URL points to the folder
+                await editMessage(editable, f"<b>Fetching images from folder:</b> <code>{msg_text}</code>")
+                try:
+                    image_urls = await fetch_image_urls(msg_text)
+                    if not image_urls:
+                        return await editMessage(editable, "<b>No images found in the folder!</b>")
+                    config_dict['IMAGES'].extend(image_urls)
+                    if DATABASE_URL:
+                        await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
+                    await editMessage(editable, f"<b><i>Successfully Added Images from Folder!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
+                except Exception as e:
+                    LOGGER.error(f"Folder Image Error: {str(e)}")
+                    await editMessage(editable, str(e))
+            elif msg_text.startswith("http"):
+                pic_add = msg_text.strip()
+                await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+                config_dict['IMAGES'].append(pic_add)
+                if DATABASE_URL:
+                    await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
+                await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     elif resm and resm.photo:
         if resm.photo.file_size > 5242880 * 2:
             return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
@@ -38,18 +66,19 @@ async def picture_add(_, message):
             await editMessage(editable, str(e))
         finally:
             await aioremove(photo_dir)
+        config_dict['IMAGES'].append(pic_add)
+        if DATABASE_URL:
+            await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
+        await asleep(1.5)
+        await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
         help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {link}" + "</code>\n"
         help_msg += "\n<b>By Replying to Photo on Telegram:</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {photo}" + "</code>"
+        help_msg += "\n<b>By Replying to Folder URL:</b>"
+        help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {folder_url}" + "</code>"
         return await editMessage(editable, help_msg)
-    config_dict['IMAGES'].append(pic_add)
-    if DATABASE_URL:
-        await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-    await asleep(1.5)
-    await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
-
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
@@ -62,10 +91,9 @@ async def pictures(_, message):
         buttons.ibutton(">>", f"images {user_id} turn 1")
         buttons.ibutton("Remove Image", f"images {user_id} remov 0")
         buttons.ibutton("Close", f"images {user_id} close")
-      #  buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
+        # buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
         await deleteMessage(to_edit)
         await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
-
 
 @new_task
 async def pics_callback(_, query):
@@ -85,7 +113,7 @@ async def pics_callback(_, query):
         buttons.ibutton(">>", f"images {data[1]} turn {ind+1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-      #  buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+        # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == "remov":
         config_dict['IMAGES'].pop(int(data[3]))
@@ -104,7 +132,7 @@ async def pics_callback(_, query):
         buttons.ibutton(">>", f"images {data[1]} turn {ind+1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-       # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+        # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == 'removall':
         config_dict['IMAGES'].clear()
@@ -119,7 +147,6 @@ async def pics_callback(_, query):
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
 
-
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~
+                               
