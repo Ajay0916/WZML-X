@@ -37,44 +37,71 @@ async def upload_to_imghippo(image_path):
 async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
-    pic_add = None
+    pic_adds = []
+    index = 0
 
     if len(message.command) > 1:
-        if '-i' in message.command:
+        command_args = message.command[1:]
+        if '-i' in command_args:
             try:
-                index = message.command.index('-i')
-                pic_index = int(message.command[index + 1])
-                if pic_index <= 0:
-                    raise ValueError("Invalid index")
+                index = int(command_args[command_args.index('-i') + 1])
+                if index <= 0:
+                    raise ValueError("Index must be a positive integer")
+
                 if resm:
+                    # Process the reply message
                     if resm.photo:
                         if resm.photo.file_size > 5242880 * 2:
                             return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
-                        try:
-                            photo_dir = await resm.download()
-                            await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
-                            await asyncio.sleep(1)
-                            pic_add = await upload_to_imghippo(photo_dir)
-                            if pic_add:
-                                LOGGER.info(f"Imghippo Link : {pic_add}")
+
+                        # Download and upload the photo
+                        photo_dir = await resm.download()
+                        await editMessage(editable, f"<b>Now, Uploading Image 1 to <code>Imghippo</code>, Please Wait...</b>")
+                        await asyncio.sleep(1)
+                        pic_add = await upload_to_imghippo(photo_dir)
+                        if pic_add:
+                            pic_adds.append(pic_add)
+                            LOGGER.info(f"Imghippo Link for Image 1: {pic_add}")
+                        else:
+                            LOGGER.error("Failed to get a valid URL from Imghippo.")
+                        await aioremove(photo_dir)
+
+                    # Process subsequent messages
+                    for i in range(index - 1):
+                        next_message = await bot.get_chat_history(message.chat.id, offset_id=message.message_id, limit=1)
+                        if next_message:
+                            resm = next_message[0]
+                            if resm.photo:
+                                if resm.photo.file_size > 5242880 * 2:
+                                    continue
+                                try:
+                                    photo_dir = await resm.download()
+                                    await editMessage(editable, f"<b>Now, Uploading Image {i + 2} to <code>Imghippo</code>, Please Wait...</b>")
+                                    await asyncio.sleep(1)
+                                    pic_add = await upload_to_imghippo(photo_dir)
+                                    if pic_add:
+                                        pic_adds.append(pic_add)
+                                        LOGGER.info(f"Imghippo Link for Image {i + 2}: {pic_add}")
+                                    else:
+                                        LOGGER.error(f"Failed to get a valid URL for Image {i + 2} from Imghippo.")
+                                    await aioremove(photo_dir)
+                                except Exception as e:
+                                    await editMessage(editable, str(e))
                             else:
-                                raise Exception("Failed to get a valid URL from Imghippo.")
-                        except Exception as e:
-                            await editMessage(editable, str(e))
-                        finally:
-                            await aioremove(photo_dir)
-                    else:
-                        return await editMessage(editable, "<b>Replying to a photo is required when using -i argument</b>")
+                                await editMessage(editable, "<b>Expected a photo in the next message</b>")
+                        else:
+                            await editMessage(editable, "<b>No more messages to process</b>")
+                            break
                 else:
-                    return await editMessage(editable, "<b>No file to reply to</b>")
-            except (IndexError, ValueError):
-                return await editMessage(editable, "<b>Invalid index provided with -i argument</b>")
+                    await editMessage(editable, "<b>No file to reply to</b>")
+            except (IndexError, ValueError) as e:
+                await editMessage(editable, f"<b>Error:</b> {str(e)}")
         else:
             msg_text = message.command[1]
             if not msg_text.startswith("http"):
                 return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
-            pic_add = msg_text.strip()
-            await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+            pic_adds.append(msg_text.strip())
+            await editMessage(editable, f"<b>Adding your Link :</b> <code>{msg_text.strip()}</code>")
     elif resm:
         if resm.photo:
             if resm.photo.file_size > 5242880 * 2:
@@ -85,6 +112,7 @@ async def picture_add(_, message):
                 await asyncio.sleep(1)
                 pic_add = await upload_to_imghippo(photo_dir)
                 if pic_add:
+                    pic_adds.append(pic_add)
                     LOGGER.info(f"Imghippo Link : {pic_add}")
                 else:
                     raise Exception("Failed to get a valid URL from Imghippo.")
@@ -93,23 +121,17 @@ async def picture_add(_, message):
             finally:
                 await aioremove(photo_dir)
         elif resm.text and resm.text.startswith("http"):
-            pic_add = resm.text.strip()
-            await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+            pic_adds.append(resm.text.strip())
+            await editMessage(editable, f"<b>Adding your Link :</b> <code>{resm.text.strip()}</code>")
         else:
             help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
             help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
             help_msg += "<b>By Replying to Photo on Telegram:</b>"
             help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
             return await editMessage(editable, help_msg)
-    else:
-        help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
-        help_msg += "<b>By Replying to Photo on Telegram:</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
-        return await editMessage(editable, help_msg)
     
-    if pic_add:
-        config_dict['IMAGES'].append(pic_add)
+    if pic_adds:
+        config_dict['IMAGES'].extend(pic_adds)
         if DATABASE_URL:
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
         await asyncio.sleep(1.5)
@@ -186,4 +208,4 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-            
+                        
