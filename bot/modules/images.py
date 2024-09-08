@@ -16,7 +16,7 @@ async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
     data = aiohttp.FormData()
     data.add_field('file', open(image_path, 'rb'), filename=image_path)
-    data.add_field('api_key', 'config_dict['IMGAPI')  # API key as form data
+    data.add_field('api_key', 'config_dict['IMGAPI'])  # API key as form data
 
     async with aiohttp.ClientSession() as session:
         async with session.post(upload_url, data=data) as resp:
