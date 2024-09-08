@@ -1,20 +1,16 @@
 import aiohttp
 import asyncio
-import logging
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
 
-from bot import bot, LOGGER, config_dict, DATABASE_URL
+from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
 from bot.helper.ext_utils.bot_utils import handleIndex, new_task
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
 from bot.helper.telegram_helper.button_build import ButtonMaker
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
 
 async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
@@ -24,14 +20,9 @@ async def upload_to_imghippo(image_path):
 
     async with aiohttp.ClientSession() as session:
         async with session.post(upload_url, data=data) as resp:
-            response_text = await resp.text()
-            LOGGER.info(f"Imghippo Response Status: {resp.status}")
-            LOGGER.info(f"Imghippo Response Text: {response_text}")
-
-            if resp.status == 200:
-                response_json = await resp.json()
-                if response_json.get("success"):
-                    return response_json.get("data", {}).get("url")
+            response_json = await resp.json()
+            if resp.status == 200 and response_json.get("success"):
+                return response_json.get("data", {}).get("url")
             return None
 
 @new_task
@@ -59,7 +50,6 @@ async def picture_add(_, message):
             else:
                 raise Exception("Failed to get a valid URL from Imghippo.")
         except Exception as e:
-            LOGGER.error(f"Images Error: {str(e)}")
             await editMessage(editable, str(e))
         finally:
             await aioremove(photo_dir)
@@ -90,7 +80,7 @@ async def pictures(_, message):
         buttons.ibutton(">>", f"images {user_id} turn 1")
         buttons.ibutton("Remove Image", f"images {user_id} remov 0")
         buttons.ibutton("Close", f"images {user_id} close")
-      #  buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
+    #    buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
         await deleteMessage(to_edit)
         await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
 
@@ -114,7 +104,7 @@ async def pics_callback(_, query):
         buttons.ibutton(">>", f"images {data[1]} turn {ind + 1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-    #    buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+       # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == "remov":
         config_dict['IMAGES'].pop(int(data[3]))
@@ -133,7 +123,7 @@ async def pics_callback(_, query):
         buttons.ibutton(">>", f"images {data[1]} turn {ind + 1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-   #     buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+     #   buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == 'removall':
         config_dict['IMAGES'].clear()
@@ -151,3 +141,4 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+        
