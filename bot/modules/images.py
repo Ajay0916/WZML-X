@@ -4,9 +4,10 @@ import asyncio
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
+
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
-from bot.helper.ext_utils.bot_utils import handleIndex, new_task, arg_parser
+from bot.helper.ext_utils.bot_utils import handleIndex, new_task
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
@@ -37,19 +38,6 @@ async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
-
-    # Parse the arguments
-    args = arg_parser(message.text, "-i")  # Use arg_parser to handle arguments
-
-    # Handle the `-i` argument for selecting images
-    if "-i" in args:
-        index = args.get("-i")
-        if index.isdigit() and int(index) < len(config_dict['IMAGES']):
-            pic_add = config_dict['IMAGES'][int(index)]
-            await editMessage(editable, f"<b>Adding your selected Image:</b> <code>{pic_add}</code>")
-        else:
-            await editMessage(editable, "<b>Invalid Index. Please provide a valid number.</b>")
-        return
 
     if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
