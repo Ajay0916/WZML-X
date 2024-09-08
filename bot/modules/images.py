@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from asyncio import sleep as asleep
-from aiofiles.os import remove as aioremove
-import aiohttp
+from aiofiles.os import path as aiopath, remove as aioremove, mkdir
+import aiohttp  # Required for making HTTP requests to imghippo.com
+from telegraph import upload_file
 
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
@@ -14,34 +15,29 @@ from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
 from bot.helper.telegram_helper.button_build import ButtonMaker
 
+# Helper function to upload images to imghippo.com
+async def upload_to_imghippo(image_path):
+    upload_url = "https://www.imghippo.com/v1/upload"
+    headers = {
+        "Authorization": "JcYoJMRK4N92hzg4VIUjbKlOm9xC9CzS",  # Replace with your Imghippo API key
+    }
 
-# Function to upload image to imghippo.com
-async def upload_to_imghippo(photo_path):
-    try:
-        upload_url = 'https://www.imghippo.com/v1/upload'  # Actual URL for imghippo API
-        headers = {
-            'Authorization': 'JcYoJMRK4N92hzg4VIUjbKlOm9xC9CzS'  # If an API key is required, replace YOUR_API_KEY with the real key
-        }
-
-        async with aiohttp.ClientSession() as session:
-            files = {'file': open(photo_path, 'rb')}  # Open the file to upload
-
-            async with session.post(upload_url, headers=headers, data=files) as response:
-                if response.status == 200:
-                    response_data = await response.json()
-                    return response_data.get('data', {}).get('url')  # Extract image URL from response
-                else:
-                    LOGGER.error(f"Imghippo Upload Failed, Status Code: {response.status}")
-                    raise Exception(f"Failed to upload image, status code: {response.status}")
-    except Exception as e:
-        LOGGER.error(f"Error in imghippo upload: {str(e)}")
-        raise
-
+    async with aiohttp.ClientSession() as session:
+        data = aiohttp.FormData()
+        data.add_field('file', open(image_path, 'rb'), filename=image_path)
+        
+        async with session.post(upload_url, headers=headers, data=data) as resp:
+            if resp.status == 200:
+                response_json = await resp.json()
+                if response_json.get("status") == "success":
+                    return response_json["data"]["url"]  # Return the uploaded image URL
+            return None
 
 @new_task
 async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
+    pic_add = None  # Initialize pic_add to ensure it has a value
 
     if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
@@ -62,18 +58,18 @@ async def picture_add(_, message):
             pic_add = await upload_to_imghippo(photo_dir)
             if pic_add:
                 LOGGER.info(f"Imghippo Link : {pic_add}")
+            else:
+                raise Exception("Failed to get a valid URL from imghippo.")
 
         except Exception as e:
             LOGGER.error(f"Images Error: {str(e)}")
             await editMessage(editable, f"<b>Upload Failed:</b> {str(e)}")
         finally:
             await aioremove(photo_dir)
-    else:
-        help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {link}" + "</code>\n"
-        help_msg += "\n<b>By Replying to Photo on Telegram:</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {photo}" + "</code>"
-        return await editMessage(editable, help_msg)
+
+    # Check if pic_add is still None, which means there was an issue
+    if not pic_add:
+        return await editMessage(editable, "<b>Image upload failed or no valid image/link provided!</b>")
 
     config_dict['IMAGES'].append(pic_add)
     if DATABASE_URL:
@@ -81,8 +77,6 @@ async def picture_add(_, message):
     await asleep(1.5)
     await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
 
-
-@new_task
 async def pictures(_, message):
     if not config_dict['IMAGES']:
         await sendMessage(message, f"<b>No Photo to Show !</b> Add by /{BotCommands.AddImageCommand}")
@@ -97,7 +91,6 @@ async def pictures(_, message):
         buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
         await deleteMessage(to_edit)
         await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
-
 
 @new_task
 async def pics_callback(_, query):
@@ -151,8 +144,7 @@ async def pics_callback(_, query):
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
 
-
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-            
+        
