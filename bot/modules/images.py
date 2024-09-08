@@ -25,13 +25,17 @@ async def upload_to_imghippo(image_path):
     async with aiohttp.ClientSession() as session:
         data = aiohttp.FormData()
         data.add_field('file', open(image_path, 'rb'), filename=image_path)
-        
+
         async with session.post(upload_url, headers=headers, data=data) as resp:
+            response_text = await resp.text()  # Capture the raw response text
+            LOGGER.info(f"Imghippo Response: {response_text}")  # Log the response for debugging
+
             if resp.status == 200:
                 response_json = await resp.json()
                 if response_json.get("status") == "success":
                     return response_json["data"]["url"]  # Return the uploaded image URL
             return None
+            
 
 @new_task
 async def picture_add(_, message):
