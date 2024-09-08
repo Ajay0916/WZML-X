@@ -3,7 +3,7 @@ import aiohttp
 import asyncio
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
-from pyrogram.filters import command, Filter
+from pyrogram.filters import command, regex
 
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
@@ -39,7 +39,9 @@ async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
-    args = arg_parser(message.text, "-i")
+    # Use an empty dictionary for arg_base
+    args = arg_parser(message.text, {"-i": None})
+
     index = args.get("-i") if args else None
 
     if len(message.command) > 1 or resm and resm.text:
@@ -151,10 +153,8 @@ async def pics_callback(_, query):
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
 
-# Replace with a custom filter function
-def filter_images_callback(query):
-    return query.data.startswith("images")
-
+# Add handlers for commands and callbacks
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(CallbackQueryHandler(pics_callback, filter_images_callback))
+bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+                                                                        
