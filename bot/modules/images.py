@@ -1,6 +1,6 @@
-from mega import MegaApi
-import asyncio
-from aiofiles.os import path as aiopath, remove as aioremove, mkdir
+import requests
+from bs4 import BeautifulSoup
+from aiofiles.os import path as aiopath, remove as aioremove
 from telegraph import upload_file
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
@@ -12,9 +12,6 @@ from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
 from bot.helper.telegram_helper.button_build import ButtonMaker
 
-# Initialize MegaApi instance
-mega = MegaApi()
-
 @new_task
 async def picture_add(_, message):
     resm = message.reply_to_message
@@ -22,29 +19,27 @@ async def picture_add(_, message):
     
     if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
-        if msg_text.startswith("https://mega.nz/folder/"):
-            folder_link = msg_text.strip()
-            await editMessage(editable, f"<b>Processing Mega.nz Folder:</b> <code>{folder_link}</code>")
-            try:
-                # Use MegaApi to access the folder
-                mega.login()  # Login if required
-                folder = mega.get_folder_contents(folder_link)
-                
-                # Extract and add image links
-                for item in folder:
-                    if item['type'] == 'file' and item['name'].lower().endswith(('.jpg', '.jpeg', '.png')):
-                        file_url = mega.get_url(item['hash'])
-                        pic_add = file_url
-                        config_dict['IMAGES'].append(pic_add)
-                
+        if msg_text.startswith("http"):
+            if 'mega.nz/folder' in msg_text:
+                # Fetch and parse Mega folder contents
+                folder_url = msg_text
+                images = await fetch_mega_folder_images(folder_url)
+                if images:
+                    config_dict['IMAGES'].extend(images)
+                    if DATABASE_URL:
+                        await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
+                    await asyncio.sleep(1.5)
+                    await editMessage(editable, f"<b><i>Successfully Added Images from Mega Folder!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
+                else:
+                    await editMessage(editable, "<b>No Images Found in Mega Folder!</b>")
+            else:
+                pic_add = msg_text.strip()
+                await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+                config_dict['IMAGES'].append(pic_add)
                 if DATABASE_URL:
                     await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-                    
+                await asyncio.sleep(1.5)
                 await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
-                
-            except Exception as e:
-                LOGGER.error(f"Mega.nz Folder Error: {str(e)}")
-                await editMessage(editable, str(e))
     
     elif resm and resm.photo:
         if resm.photo.file_size > 5242880 * 2:
@@ -62,8 +57,6 @@ async def picture_add(_, message):
         help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {link}" + "</code>\n"
         help_msg += "\n<b>By Replying to Photo on Telegram:</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {photo}" + "</code>"
-        help_msg += "\n<b>Or by providing Mega.nz folder link:</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {mega_folder_link}" + "</code>"
         return await editMessage(editable, help_msg)
     
     if DATABASE_URL:
@@ -71,6 +64,25 @@ async def picture_add(_, message):
 
     await asyncio.sleep(1.5)
     await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
+
+async def fetch_mega_folder_images(folder_url):
+    try:
+        # Fetch HTML content of the Mega folder page
+        response = requests.get(folder_url)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        images = []
+        # Extract image links
+        for link in soup.find_all('a', href=True):
+            href = link['href']
+            if href.startswith('/file/') and href.lower().endswith(('.jpg', '.jpeg', '.png')):
+                file_url = f"https://mega.nz{href}"
+                images.append(file_url)
+        return images
+    except Exception as e:
+        LOGGER.error(f"Failed to fetch Mega folder contents: {str(e)}")
+        return []
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
@@ -143,3 +155,4 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+                          
