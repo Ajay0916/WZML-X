@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from asyncio import sleep as asleep
 from aiofiles.os import path as aiopath, remove as aioremove, mkdir
-from mega import Mega
+from mega import MegaApi
 
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
