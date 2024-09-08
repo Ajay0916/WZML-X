@@ -38,17 +38,20 @@ async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
+    index = None
 
     # Handle -i argument
-    if len(message.command) > 2 and message.command[1] == '-i':
+    if len(message.command) > 1 and message.command[1].startswith('-i'):
         try:
-            index = int(message.command[2])
+            index = int(message.command[1][2:])
             if index < 0:
-                return await editMessage(editable, "<b>Index cannot be negative.</b>")
-        except ValueError:
+                raise ValueError("Index must be a positive number.")
+        except (IndexError, ValueError):
             return await editMessage(editable, "<b>Invalid index format. Use -i followed by a number.</b>")
 
-        if resm and resm.photo:
+    # Handle the image or link
+    if resm and (resm.text or resm.photo):
+        if resm.photo:
             if resm.photo.file_size > 5242880 * 2:
                 return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
             try:
@@ -64,51 +67,34 @@ async def picture_add(_, message):
                 await editMessage(editable, str(e))
             finally:
                 await aioremove(photo_dir)
-            
-            if pic_add:
-                # Insert image at specified index
-                if index <= len(config_dict['IMAGES']):
-                    config_dict['IMAGES'].insert(index, pic_add)
-                    if DATABASE_URL:
-                        await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-                    await asyncio.sleep(1.5)
-                    await editMessage(editable, f"<b><i>Successfully Added to Images List at index {index}!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
-                else:
-                    await editMessage(editable, "<b>Index out of range.</b>")
+        elif resm.text and resm.text.startswith("http"):
+            pic_add = resm.text.strip()
         else:
-            await editMessage(editable, "<b>Reply to a photo to add it to the list.</b>")
-    else:
-        if len(message.command) > 1 or resm and resm.text:
-            msg_text = resm.text if resm else message.command[1]
-            if not msg_text.startswith("http"):
-                return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
-            pic_add = msg_text.strip()
-            await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
-        elif resm and resm.photo:
-            if resm.photo.file_size > 5242880 * 2:
-                return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
-            try:
-                photo_dir = await resm.download()
-                await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
-                await asyncio.sleep(1)
-                pic_add = await upload_to_imghippo(photo_dir)
-                if pic_add:
-                    LOGGER.info(f"Imghippo Link : {pic_add}")
-                else:
-                    raise Exception("Failed to get a valid URL from Imghippo.")
-            except Exception as e:
-                await editMessage(editable, str(e))
-            finally:
-                await aioremove(photo_dir)
+            return await editMessage(editable, "<b>Not a Valid Link or Media</b>")
         
         if pic_add:
-            config_dict['IMAGES'].append(pic_add)
+            # Insert image at the specified index
+            if index is not None:
+                if index >= len(config_dict['IMAGES']):
+                    config_dict['IMAGES'].append(pic_add)
+                else:
+                    config_dict['IMAGES'].insert(index, pic_add)
+            else:
+                config_dict['IMAGES'].append(pic_add)
+            
             if DATABASE_URL:
                 await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
+
             await asyncio.sleep(1.5)
-            await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
+            await editMessage(editable, f"<b><i>Successfully Added to Images List at index {index if index is not None else len(config_dict['IMAGES']) - 1}!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
         else:
             await editMessage(editable, "<b>Failed to upload image.</b>")
+    else:
+        help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
+        help_msg += f"\n<code>/{BotCommands.AddImageCommand} -i {{index}} {{link}}</code>\n"
+        help_msg += "<b>By Replying to Photo on Telegram:</b>"
+        help_msg += f"\n<code>/{BotCommands.AddImageCommand} -i {{index}} {{photo}}</code>"
+        return await editMessage(editable, help_msg)
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
@@ -178,4 +164,4 @@ async def pics_callback(_, query):
 
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex('images')))
