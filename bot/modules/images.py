@@ -2,6 +2,7 @@
 from asyncio import sleep as asleep
 from aiofiles.os import path as aiopath, remove as aioremove, mkdir
 from telegraph import upload_file
+import re
 
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
@@ -18,6 +19,22 @@ from bot.helper.telegram_helper.button_build import ButtonMaker
 async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
+
+    # Check if -i argument is provided for multiple file upload
+    if len(message.command) > 1 and message.command[1].startswith('-i'):
+        args = message.command[1].split()
+        if len(args) > 1 and args[1].isdigit():
+            indices = list(map(int, args[1:]))
+            valid_indices = [i for i in indices if 0 <= i < len(config_dict['IMAGES'])]
+            if valid_indices:
+                selected_images = [config_dict['IMAGES'][i] for i in valid_indices]
+                pic_add = ", ".join(selected_images)
+                await editMessage(editable, f"<b>Selected Images :</b>\n<code>{pic_add}</code>")
+            else:
+                await editMessage(editable, "<b>Invalid Image IDs!</b>")
+            return
+
+    # Existing handling for URLs or photos
     if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
         if not msg_text.startswith("http"):
@@ -44,12 +61,12 @@ async def picture_add(_, message):
         help_msg += "\n<b>By Replying to Photo on Telegram:</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {photo}" + "</code>"
         return await editMessage(editable, help_msg)
+    
     config_dict['IMAGES'].append(pic_add)
     if DATABASE_URL:
         await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
     await asleep(1.5)
     await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
-
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
@@ -62,19 +79,21 @@ async def pictures(_, message):
         buttons.ibutton(">>", f"images {user_id} turn 1")
         buttons.ibutton("Remove Image", f"images {user_id} remov 0")
         buttons.ibutton("Close", f"images {user_id} close")
-     #   buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
+      #  buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
         await deleteMessage(to_edit)
         await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
-
 
 @new_task
 async def pics_callback(_, query):
     message = query.message
     user_id = query.from_user.id
     data = query.data.split()
+    
+    # Check for user authorization
     if user_id != int(data[1]):
         await query.answer(text="Not Authorized User!", show_alert=True)
         return
+
     if data[2] == "turn":
         await query.answer()
         ind = handleIndex(int(data[3]), config_dict['IMAGES'])
@@ -85,7 +104,7 @@ async def pics_callback(_, query):
         buttons.ibutton(">>", f"images {data[1]} turn {ind+1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-     #   buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+       # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == "remov":
         config_dict['IMAGES'].pop(int(data[3]))
@@ -104,7 +123,7 @@ async def pics_callback(_, query):
         buttons.ibutton(">>", f"images {data[1]} turn {ind+1}")
         buttons.ibutton("Remove Image", f"images {data[1]} remov {ind}")
         buttons.ibutton("Close", f"images {data[1]} close")
-     #   buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
+       # buttons.ibutton("Remove All", f"images {data[1]} removall", 'footer')
         await editMessage(message, pic_info, buttons.build_menu(2), config_dict['IMAGES'][ind])
     elif data[2] == 'removall':
         config_dict['IMAGES'].clear()
@@ -118,7 +137,6 @@ async def pics_callback(_, query):
         await deleteMessage(message)
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
-
 
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
