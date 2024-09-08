@@ -18,29 +18,12 @@ from bot.helper.telegram_helper.button_build import ButtonMaker
 async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
-
-    # Check if -i argument is provided for multiple file upload
-    if len(message.command) > 1 and message.command[1].startswith('-i'):
-        args = message.command[1].split()
-        if len(args) > 1 and args[1].isdigit():
-            indices = list(map(int, args[1:]))
-            valid_indices = [i for i in indices if 0 <= i < len(config_dict['IMAGES'])]
-            if valid_indices:
-                selected_images = [config_dict['IMAGES'][i] for i in valid_indices]
-                pic_add = ", ".join(selected_images)
-                await editMessage(editable, f"<b>Selected Images :</b>\n<code>{pic_add}</code>")
-            else:
-                await editMessage(editable, "<b>Invalid Image IDs!</b>")
-            return
-
-    # Handle URL or photo
-    if len(message.command) > 1 or (resm and resm.text):
-        msg_text = resm.text if resm else (message.command[1] if len(message.command) > 1 else None)
-        if msg_text and msg_text.startswith("http"):
-            pic_add = msg_text.strip()
-            await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
-        else:
+    if len(message.command) > 1 or resm and resm.text:
+        msg_text = resm.text if resm else message.command[1]
+        if not msg_text.startswith("http"):
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
+        pic_add = msg_text.strip()
+        await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
     elif resm and resm.photo:
         if resm.photo.file_size > 5242880 * 2:
             return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
@@ -61,12 +44,12 @@ async def picture_add(_, message):
         help_msg += "\n<b>By Replying to Photo on Telegram:</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand}" + " {photo}" + "</code>"
         return await editMessage(editable, help_msg)
-    
     config_dict['IMAGES'].append(pic_add)
     if DATABASE_URL:
         await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
     await asleep(1.5)
     await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
+
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
@@ -82,6 +65,7 @@ async def pictures(_, message):
         buttons.ibutton("Remove All", f"images {user_id} removall", 'footer')
         await deleteMessage(to_edit)
         await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
+
 
 @new_task
 async def pics_callback(_, query):
@@ -134,6 +118,7 @@ async def pics_callback(_, query):
         await deleteMessage(message)
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
+
 
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
