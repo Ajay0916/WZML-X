@@ -1,7 +1,6 @@
 import logging
 import aiohttp
 import asyncio
-import argparse
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
@@ -21,14 +20,6 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger(__name__)
 
-# Argument parsing
-def parse_args():
-    parser = argparse.ArgumentParser(description="Telegram Bot")
-    parser.add_argument('-i', '--image', type=str, help='URL or file path for image.')
-    return parser.parse_args()
-
-args = parse_args()
-
 async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
     data = aiohttp.FormData()
@@ -44,49 +35,39 @@ async def upload_to_imghippo(image_path):
 
 @new_task
 async def picture_add(_, message):
+    resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
-    if args.image:
-        msg_text = args.image
+    if len(message.command) > 1 or resm and resm.text:
+        msg_text = resm.text if resm else message.command[1]
+        if not msg_text.startswith("http"):
+            return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
+        pic_add = msg_text.strip()
+        await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+    elif resm and resm.photo:
+        if resm.photo.file_size > 5242880 * 2:
+            return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
+        try:
+            photo_dir = await resm.download()
+            await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
+            await asyncio.sleep(1)
+            pic_add = await upload_to_imghippo(photo_dir)
+            if pic_add:
+                LOGGER.info(f"Imghippo Link : {pic_add}")
+            else:
+                raise Exception("Failed to get a valid URL from Imghippo.")
+        except Exception as e:
+            await editMessage(editable, str(e))
+        finally:
+            await aioremove(photo_dir)
     else:
-        if not message.command:
-            await sendMessage(message, "<b>Invalid command format.</b>")
-            return
-
-        resm = message.reply_to_message
-        if len(message.command) > 1:
-            msg_text = message.command[1]
-        elif resm and resm.text:
-            msg_text = resm.text
-        elif resm and resm.photo:
-            if resm.photo.file_size > 5242880 * 2:
-                return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
-            try:
-                photo_dir = await resm.download()
-                await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
-                await asyncio.sleep(1)
-                pic_add = await upload_to_imghippo(photo_dir)
-                if pic_add:
-                    LOGGER.info(f"Imghippo Link : {pic_add}")
-                else:
-                    raise Exception("Failed to get a valid URL from Imghippo.")
-            except Exception as e:
-                await editMessage(editable, str(e))
-            finally:
-                await aioremove(photo_dir)
-            return
-        else:
-            msg_text = None
-
-    if msg_text:
-        if msg_text.startswith("http"):
-            pic_add = msg_text.strip()
-            await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
-        else:
-            await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
-            return
-
+        help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
+        help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
+        help_msg += "<b>By Replying to Photo on Telegram:</b>"
+        help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
+        return await editMessage(editable, help_msg)
+    
     if pic_add:
         config_dict['IMAGES'].append(pic_add)
         if DATABASE_URL:
@@ -162,7 +143,6 @@ async def pics_callback(_, query):
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
 
-# Add handlers for Telegram commands
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
