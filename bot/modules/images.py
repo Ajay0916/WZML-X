@@ -39,15 +39,20 @@ async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
+    # Handle -i argument for multiple Telegram files
     if len(message.command) > 1 and message.command[1].startswith('-i'):
         try:
             index = int(message.command[1][2:])
         except ValueError:
             return await editMessage(editable, "<b>Invalid index format. Use -i followed by a number.</b>")
 
+        if index <= 0:
+            return await editMessage(editable, "<b>Index must be a positive number.</b>")
+
         chat_id = message.chat.id
         images_to_add = []
 
+        # Fetch chat history and process images
         async for msg in bot.get_chat_history(chat_id, limit=100):  # Adjust limit if needed
             if len(images_to_add) >= index:
                 break
