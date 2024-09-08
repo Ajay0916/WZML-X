@@ -23,8 +23,7 @@ LOGGER = logging.getLogger(__name__)
 async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
     data = aiohttp.FormData()
-    with open(image_path, 'rb') as file:
-        data.add_field('file', file, filename=image_path)
+        data.add_field('file', open(image_path, 'rb'), filename=image_path)
     data.add_field('api_key', f'{config_dict["IMGAPI"]}')  # API key as form data
 
     async with aiohttp.ClientSession() as session:
