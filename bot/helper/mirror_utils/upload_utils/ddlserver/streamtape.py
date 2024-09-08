@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import asyncio  # Ensure asyncio is imported
 from pathlib import Path
 
 from aiofiles.os import scandir, path as aiopath
@@ -146,7 +147,11 @@ class Streamtape:
                 elif entry.is_dir():
                     tasks.append(self.upload_folder(entry.path, newfid))
                     self.dluploader.total_folders += 1
-            await asyncio.gather(*tasks)  # Ensure to handle results and errors
+            # Ensure all tasks are awaited and handle results/errors
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for result in results:
+                if isinstance(result, Exception):
+                    LOGGER.error(f"Task failed: {result}")
             return await self.list_telegraph(newfid)
         return None
         
