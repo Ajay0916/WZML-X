@@ -35,7 +35,6 @@ async def upload_to_imghippo(image_path):
                 return response_json.get("data", {}).get("url")
             return None
 
-@new_task
 async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
@@ -159,7 +158,7 @@ async def pictures(_, message):
         await deleteMessage(to_edit)
         await sendMessage(message, f'🌄 <b>Image No. : 1 / {len(config_dict["IMAGES"])}</b>', buttons.build_menu(2), config_dict['IMAGES'][0])
 
-@new_task
+
 async def pics_callback(_, query):
     message = query.message
     user_id = query.from_user.id
