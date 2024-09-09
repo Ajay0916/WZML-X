@@ -38,7 +38,7 @@ async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     
     # Parse arguments using arg_parser from bot_utils
-    args = arg_parser(message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else "")
+    args = arg_parser(message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else "", arg_base=message.text)
     
     pic_add = None
 
