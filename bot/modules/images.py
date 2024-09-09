@@ -49,46 +49,65 @@ async def picture_add(_, message):
 
     multi = int(args['-i']) if args['-i'].isdigit() else 0
 
-    msg_text = None
-    if len(message.command) > 1:
-        msg_text = message.command[1]
-    elif resm and resm.text:
-        msg_text = resm.text
+    # Check for valid URL or photo
+    if multi > 0:
+        if resm and resm.photo:
+            if resm.photo.file_size > 5242880 * 2:
+                return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
+            try:
+                photo_dir = await resm.download()
+                await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
+                await asyncio.sleep(1)
+                pic_add = await upload_to_imghippo(photo_dir)
+                if pic_add:
+                    LOGGER.info(f"Imghippo Link : {pic_add}")
+                else:
+                    raise Exception("Failed to get a valid URL from Imghippo.")
+            except Exception as e:
+                await editMessage(editable, str(e))
+            finally:
+                await aioremove(photo_dir)
+        else:
+            await editMessage(editable, "<b>Reply to a photo to use -i with multiple photos.</b>")
+    else:
+        msg_text = None
+        if len(message.command) > 1:
+            msg_text = message.command[1]
+        elif resm and resm.text:
+            msg_text = resm.text
 
-    # Debugging logs
-    LOGGER.info(f"Extracted msg_text: {msg_text}")
-    
-    if msg_text:
-        # Handle URL
-        if not msg_text.startswith("http"):
+        # Debugging logs
+        LOGGER.info(f"Extracted msg_text: {msg_text}")
+        
+        if msg_text and not msg_text.startswith("http"):
             LOGGER.error(f"Invalid link detected: {msg_text}")
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
-        pic_add = msg_text.strip()
-        await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
-    elif resm and resm.photo:
-        # Handle Photo
-        if resm.photo.file_size > 5242880 * 2:
-            return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
-        try:
-            photo_dir = await resm.download()
-            await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
-            await asyncio.sleep(1)
-            pic_add = await upload_to_imghippo(photo_dir)
-            if pic_add:
-                LOGGER.info(f"Imghippo Link : {pic_add}")
-            else:
-                raise Exception("Failed to get a valid URL from Imghippo.")
-        except Exception as e:
-            await editMessage(editable, str(e))
-        finally:
-            await aioremove(photo_dir)
-    else:
-        # Provide help if neither link nor photo is provided
-        help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
-        help_msg += "<b>By Replying to Photo on Telegram:</b>"
-        help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
-        return await editMessage(editable, help_msg)
+        
+        if msg_text:
+            pic_add = msg_text.strip()
+            await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+        elif resm and resm.photo:
+            if resm.photo.file_size > 5242880 * 2:
+                return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
+            try:
+                photo_dir = await resm.download()
+                await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
+                await asyncio.sleep(1)
+                pic_add = await upload_to_imghippo(photo_dir)
+                if pic_add:
+                    LOGGER.info(f"Imghippo Link : {pic_add}")
+                else:
+                    raise Exception("Failed to get a valid URL from Imghippo.")
+            except Exception as e:
+                await editMessage(editable, str(e))
+            finally:
+                await aioremove(photo_dir)
+        else:
+            help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
+            help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
+            help_msg += "<b>By Replying to Photo on Telegram:</b>"
+            help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
+            return await editMessage(editable, help_msg)
     
     if pic_add:
         config_dict['IMAGES'].append(pic_add)
@@ -119,6 +138,7 @@ async def picture_add(_, message):
         await picture_add(_, nextmsg)
 
     __run_multi()
+    
     
     
 
