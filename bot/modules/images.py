@@ -20,6 +20,11 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger(__name__)
 
+# Define arg_base with 0 for optional arguments
+arg_base = {
+    '-i': 0  # Default value of 0 for the -i argument
+}
+
 async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
     data = aiohttp.FormData()
@@ -35,17 +40,15 @@ async def upload_to_imghippo(image_path):
 
 @new_task
 async def picture_add(_, message):
-    # Split command and arguments
-    command_text = message.text.split(maxsplit=1)
-    command_str = command_text[0]
-    args_str = command_text[1] if len(command_text) > 1 else ""
-
-    # Use arg_parser to handle arguments
-    args = arg_parser(args_str, arg_base=BotCommands.AddImageCommand)
-    num_messages = args.i if args.i is not None else 1
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
+
+    # Extract and parse arguments
+    input_list = message.text.split(maxsplit=1)
+    args = arg_parser(input_list[1:] if len(input_list) > 1 else [], arg_base=arg_base)
+    cmd = input_list[0].split('@')[0]
+    multi = int(args['-i']) if isinstance(args['-i'], str) and args['-i'].isdigit() else 0
 
     if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
@@ -82,14 +85,26 @@ async def picture_add(_, message):
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
         await asyncio.sleep(1.5)
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
-    else:
-        await editMessage(editable, "<b>Failed to upload image.</b>")
+    
+    # Handling next messages with delay
+    if multi > 1:
+        async def __run_multi():
+            if multi <= 1:
+                return
+            await asyncio.sleep(5)
+            if len(input_list) > 1:
+                msg = input_list[:1]
+                msg.append(f'-i {multi - 1}')
+                nextmsg = await sendMessage(message.chat.id, " ".join(msg))
+            else:
+                msg = [s.strip() for s in input_list]
+                index = msg.index('-i')
+                msg[index+1] = f"{multi - 1}"
+                nextmsg = await sendMessage(message.chat.id, " ".join(msg))
+            await asyncio.sleep(5)
+            await picture_add(_, nextmsg)
 
-    # Handle multiple messages if -i argument is provided
-    for i in range(num_messages - 1, 0, -1):
-        next_command = f"/{BotCommands.AddImageCommand} -i {i}"
-        await bot.send_message(message.chat.id, next_command)
-        await asyncio.sleep(1)  # To avoid hitting rate limits
+        await __run_multi()
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
