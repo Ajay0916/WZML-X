@@ -66,7 +66,7 @@ async def picture_add(_, message):
             else:
                 raise Exception("Failed to get a valid URL from Imghippo.")
         except Exception as e:
-            await editMessage(editable, str(e))
+            await editMessage(editable, f"<b>Error:</b> {str(e)}")
         finally:
             await aioremove(photo_dir)
     else:
@@ -171,3 +171,4 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+        
