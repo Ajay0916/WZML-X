@@ -13,31 +13,6 @@ from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
 from bot.helper.telegram_helper.button_build import ButtonMaker
 
-from pyrogram.handlers import MessageHandler
-from pyrogram.filters import command
-from secrets import token_hex
-from asyncio import sleep, gather
-from aiofiles.os import path as aiopath
-from cloudscraper import create_scraper as cget
-from json import loads, dumps as jdumps
-
-from bot import LOGGER, download_dict, download_dict_lock, categories_dict, config_dict, bot
-from bot.helper.ext_utils.task_manager import limit_checker, task_utils
-from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
-from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage, sendStatusMessage, delete_links, auto_delete_message, open_category_btns
-from bot.helper.telegram_helper.filters import CustomFilters
-from bot.helper.telegram_helper.bot_commands import BotCommands
-from bot.helper.telegram_helper.button_build import ButtonMaker
-from bot.helper.mirror_utils.status_utils.gdrive_status import GdriveStatus
-from bot.helper.ext_utils.bot_utils import is_gdrive_link, new_task, get_readable_file_size, sync_to_async, fetch_user_tds, is_share_link, new_task, is_rclone_path, cmd_exec, get_telegraph_list, arg_parser
-from bot.helper.ext_utils.exceptions import DirectDownloadLinkException
-from bot.helper.mirror_utils.download_utils.direct_link_generator import direct_link_generator
-from bot.helper.mirror_utils.rclone_utils.list import RcloneList
-from bot.helper.mirror_utils.rclone_utils.transfer import RcloneTransferHelper
-from bot.helper.ext_utils.help_messages import CLONE_HELP_MESSAGE
-from bot.helper.mirror_utils.status_utils.rclone_status import RcloneStatus
-from bot.helper.listeners.tasks_listener import MirrorLeechListener
-from bot.helper.themes import BotTheme
 # Configure the logger
 logging.basicConfig(
     level=logging.INFO,
