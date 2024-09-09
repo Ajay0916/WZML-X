@@ -4,6 +4,7 @@ import asyncio
 from aiofiles.os import remove as aioremove
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pyrogram.filters import command, regex
+from pyrogram import Client, Message
 
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
@@ -41,12 +42,9 @@ async def picture_add(client, message):
     text = message.text.split('\n')
     input_list = text[0].split(' ')
 
-    arg_base = {'link': '', 
-                '-i': '0'}
-    
+    arg_base = {'link': '', '-i': '0'}
     args = arg_parser(input_list[1:], arg_base)
     cmd = input_list[0].split('@')[0]
-
     multi = int(args['-i']) if args['-i'].isdigit() else 0
 
     # Check for valid URL or photo
@@ -78,11 +76,11 @@ async def picture_add(client, message):
 
         # Debugging logs
         LOGGER.info(f"Extracted msg_text: {msg_text}")
-        
+
         if msg_text and not msg_text.startswith("http"):
             LOGGER.error(f"Invalid link detected: {msg_text}")
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
-        
+
         if msg_text:
             pic_add = msg_text.strip()
             await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
@@ -108,7 +106,7 @@ async def picture_add(client, message):
             help_msg += "<b>By Replying to Photo on Telegram:</b>"
             help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{photo}}</code>"
             return await editMessage(editable, help_msg)
-    
+
     if pic_add:
         config_dict['IMAGES'].append(pic_add)
         if DATABASE_URL:
@@ -118,35 +116,32 @@ async def picture_add(client, message):
     else:
         await editMessage(editable, "<b>Failed to upload image.</b>")
 
+    if multi > 1:
+        await __run_multi(client, message, input_list, multi)
 
-@new_task
-async def __run_multi():
-    if multi <= 1:
-        return
-    await asyncio.sleep(5)
-    if len(input_list) > 1:
-        msg = input_list[:1]
-        msg.append(f'-i {multi - 1}')
-        nextmsg = await sendMessage(message.chat.id, " ".join(msg))
-    else:
-        msg = [s.strip() for s in input_list]
-        index = msg.index('-i')
-        msg[index + 1] = f"{multi - 1}"
-        nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=message.reply_to_message_id + 1)
-        nextmsg = await sendMessage(message.chat.id, " ".join(msg))
-    
-    if isinstance(nextmsg, Message):
-        nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=nextmsg.id)
+    async def __run_multi(client, message, input_list, multi):
+        if multi <= 1:
+            return
         await asyncio.sleep(5)
-        await picture_add(client, nextmsg)
-    else:
-        LOGGER.error("Failed to retrieve next message.")
+        if len(input_list) > 1:
+            msg = input_list[:1]
+            msg.append(f'-i {multi - 1}')
+            nextmsg = await sendMessage(message.chat.id, " ".join(msg))
+        else:
+            msg = [s.strip() for s in input_list]
+            index = msg.index('-i')
+            msg[index + 1] = f"{multi - 1}"
+            nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=message.reply_to_message_id + 1)
+            nextmsg = await sendMessage(message.chat.id, " ".join(msg))
+    
+        if isinstance(nextmsg, Message):
+            nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=nextmsg.id)
+            await asyncio.sleep(5)
+            await picture_add(client, nextmsg)
+        else:
+            LOGGER.error("Failed to retrieve next message.")
 
-
-    __run_multi()
-    
-    
-    
+        await __run_multi(client, message, input_list, multi - 1)
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
@@ -214,7 +209,7 @@ async def pics_callback(_, query):
         if message.reply_to_message:
             await deleteMessage(message.reply_to_message)
 
-bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
-bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-        
+
+    bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
+    bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
+    bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
