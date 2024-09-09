@@ -35,7 +35,8 @@ async def upload_to_imghippo(image_path):
 
 @new_task
 async def picture_add(_, message):
-    args = arg_parser(message.text)
+    # Use arg_parser similar to mirror_leech.py
+    args = arg_parser(message.text, arg_base=BotCommands.AddImageCommand)
     num_messages = args.i if args.i is not None else 1
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
@@ -154,4 +155,3 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
-    
