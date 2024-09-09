@@ -7,7 +7,7 @@ from pyrogram.filters import command, regex
 
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
-from bot.helper.ext_utils.bot_utils import handleIndex, new_task, arg_parser
+from bot.helper.ext_utils.bot_utils import handleIndex, new_task
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
@@ -39,20 +39,12 @@ async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
-    input_list = message.text.split(maxsplit=1)
-    arg_base = {'-i': '0'}  # Initialize arg_base with only '-i'
-    args = arg_parser(input_list[1:], arg_base)
-    cmd = input_list[0].split('@')[0]
-
-    multi = int(args.get('-i', '0')) if args.get('-i', '0').isdigit() else 0
-
-    if len(message.command) > 1 or (resm and resm.text):
-        msg_text = resm.text if resm else (message.command[1] if len(message.command) > 1 else None)
-        if msg_text and msg_text.startswith("http"):
-            pic_add = msg_text.strip()
-            await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
-        else:
-            await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
+    if len(message.command) > 1 or resm and resm.text:
+        msg_text = resm.text if resm else message.command[1]
+        if not msg_text.startswith("http"):
+            return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
+        pic_add = msg_text.strip()
+        await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
     elif resm and resm.photo:
         if resm.photo.file_size > 5242880 * 2:
             return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
@@ -66,7 +58,7 @@ async def picture_add(_, message):
             else:
                 raise Exception("Failed to get a valid URL from Imghippo.")
         except Exception as e:
-            await editMessage(editable, f"<b>Error:</b> {str(e)}")
+            await editMessage(editable, str(e))
         finally:
             await aioremove(photo_dir)
     else:
@@ -82,25 +74,8 @@ async def picture_add(_, message):
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
         await asyncio.sleep(1.5)
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
-
-    if multi > 1:
-        async def __run_multi():
-            if multi <= 1:
-                return
-            await asyncio.sleep(5)
-            if len(input_list) > 1:
-                msg = input_list[:1]
-                msg.append(f'-i {multi - 1}')
-                nextmsg = await sendMessage(message.chat.id, " ".join(msg))
-            else:
-                msg = [s.strip() for s in input_list]
-                index = msg.index('-i')
-                msg[index + 1] = f"{multi - 1}"
-                nextmsg = await sendMessage(message.chat.id, " ".join(msg))
-            await asyncio.sleep(5)
-            await picture_add(_, nextmsg)
-
-        await __run_multi()
+    else:
+        await editMessage(editable, "<b>Failed to upload image.</b>")
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
