@@ -35,68 +35,65 @@ async def upload_to_imghippo(image_path):
 
 @new_task
 async def picture_add(_, message):
-    editable = await sendMessage(message, "<i>Fetching Input ...</i>")
-    
-    # Parse arguments using arg_parser from bot_utils
-    args = arg_parser(message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else "", arg_base=message.text)
+    # Parse arguments
+    command_text = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else ""
+    args = arg_parser(command_text, arg_base=message.text)
+
+    num_messages = args.i if args.i is not None else 1
+    if num_messages <= 0:
+        await sendMessage(message.chat.id, "<b>Invalid number of messages!</b>")
+        return
+
+    # Fetch messages from the chat
+    messages = await bot.get_chat_history(message.chat.id, limit=num_messages + 1, offset_id=message.message_id)
     
     pic_add = None
+    for msg in messages:
+        if msg.message_id == message.message_id:
+            continue
 
-    if args:
-        # Check for the -i argument and get the number of next messages to process
-        if args.i:
-            num_messages = int(args.i)
-            if num_messages <= 0:
-                return await editMessage(editable, "<b>Invalid number of messages to process!</b>")
-            
-            # Fetch the next messages after the current message
-            next_messages = await bot.get_chat_history(message.chat.id, limit=num_messages, offset_id=message.message_id)
-            
-            for resm in next_messages:
-                if resm.photo:
-                    # Handle the photo
-                    if resm.photo.file_size > 5242880 * 2:
-                        await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
-                        continue
-                    try:
-                        photo_dir = await resm.download()
-                        await editMessage(editable, "<b>Now, Uploading to <code>Imghippo</code>, Please Wait...</b>")
-                        await asyncio.sleep(1)
-                        pic_add = await upload_to_imghippo(photo_dir)
-                        if pic_add:
-                            LOGGER.info(f"Imghippo Link : {pic_add}")
-                        else:
-                            raise Exception("Failed to get a valid URL from Imghippo.")
-                    except Exception as e:
-                        await editMessage(editable, str(e))
-                    finally:
-                        await aioremove(photo_dir)
+        if msg.photo:
+            if msg.photo.file_size > 5242880 * 2:
+                await sendMessage(msg.chat.id, "<i>Media is Not Supported! Only Photos!!</i>")
+                continue
+            try:
+                photo_dir = await msg.download()
+                pic_add = await upload_to_imghippo(photo_dir)
+                if pic_add:
+                    LOGGER.info(f"Imghippo Link : {pic_add}")
+                else:
+                    raise Exception("Failed to get a valid URL from Imghippo.")
+            except Exception as e:
+                await sendMessage(msg.chat.id, str(e))
+            finally:
+                await aioremove(photo_dir)
 
-                elif resm.text:
-                    # Handle the text message link
-                    msg_text = resm.text.strip()
-                    if not msg_text.startswith("http"):
-                        await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
-                        continue
-                    pic_add = msg_text
-                    await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+        elif msg.text:
+            msg_text = msg.text.strip()
+            if not msg_text.startswith("http"):
+                await sendMessage(msg.chat.id, "<b>Not a Valid Link, Must Start with 'http'</b>")
+                continue
+            pic_add = msg_text
 
-            if pic_add:
-                config_dict['IMAGES'].append(pic_add)
-                if DATABASE_URL:
-                    await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
-                await asyncio.sleep(1.5)
-                await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
-            else:
-                await editMessage(editable, "<b>Failed to upload image.</b>")
-            
-            # Recursively call the bot to process the next messages if num_messages > 1
-            if num_messages > 1:
+    if pic_add:
+        config_dict['IMAGES'].append(pic_add)
+        if DATABASE_URL:
+            await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
+        await sendMessage(message.chat.id, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
+    else:
+        await sendMessage(message.chat.id, "<b>Failed to upload image.</b>")
+
+    # Reply to next messages with updated -i
+    if num_messages > 1:
+        next_command = f"/{BotCommands.AddImageCommand} -i {num_messages - 1}"
+        async for next_msg in bot.get_chat_history(message.chat.id, limit=1, offset_id=message.message_id):
+            if next_msg.message_id != message.message_id:
                 await bot.send_message(
                     chat_id=message.chat.id,
-                    text=f"/{BotCommands.AddImageCommand} -i {num_messages - 1}",
-                    reply_to_message_id=message.message_id
+                    text=next_command,
+                    reply_to_message_id=next_msg.message_id
                 )
+                break
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
@@ -167,3 +164,4 @@ async def pics_callback(_, query):
 bot.add_handler(MessageHandler(picture_add, filters=command(BotCommands.AddImageCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(MessageHandler(pictures, filters=command(BotCommands.ImagesCommand) & CustomFilters.authorized & ~CustomFilters.blacklisted))
 bot.add_handler(CallbackQueryHandler(pics_callback, filters=regex(r'^images')))
+                           
