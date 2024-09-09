@@ -59,7 +59,7 @@ async def upload_to_imghippo(image_path):
             return None
 
 @new_task
-async def picture_add(client, _, message):
+async def picture_add(client, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
@@ -160,7 +160,7 @@ async def picture_add(client, _, message):
             nextmsg = await sendMessage(nextmsg, " ".join(msg))
         nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=nextmsg.id)
         await asyncio.sleep(5)
-        await picture_add(_, client, nextmsg, message)
+        await picture_add(client, nextmsg)
 
     __run_multi()
     
