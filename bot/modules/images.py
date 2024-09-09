@@ -38,7 +38,18 @@ async def picture_add(_, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
+    text = message.text.split('\n')
+    input_list = text[0].split(' ')
 
+    arg_base = {'link': '', 
+                '-i': '0'}
+    
+    args = arg_parser(input_list[1:], arg_base)
+    cmd = input_list[0].split('@')[0]
+
+    multi = int(args['-i']) if args['-i'].isdigit() else 0
+
+    
     if len(message.command) > 1 or resm and resm.text:
         msg_text = resm.text if resm else message.command[1]
         if not msg_text.startswith("http"):
@@ -76,6 +87,27 @@ async def picture_add(_, message):
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
     else:
         await editMessage(editable, "<b>Failed to upload image.</b>")
+
+    @new_task
+    async def __run_multi():
+        if multi <= 1:
+            return
+        await asyncio.sleep(5)
+        if len(input_list) > 1:
+            msg = input_list[:1]
+            msg.append(f'-i {multi - 1}')
+            nextmsg = await sendMessage(message.chat.id, " ".join(msg))
+        else:
+            msg = [s.strip() for s in input_list]
+            index = msg.index('-i')
+            msg[index + 1] = f"{multi - 1}"
+            nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=message.reply_to_message_id + 1)
+            nextmsg = await sendMessage(nextmsg, " ".join(msg))
+        nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=nextmsg.id)
+        await asyncio.sleep(5)
+        await picture_add(_, nextmsg)
+
+    __run_multi()
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
