@@ -118,24 +118,30 @@ async def picture_add(client, message):
     else:
         await editMessage(editable, "<b>Failed to upload image.</b>")
 
-    @new_task
-    async def __run_multi():
-        if multi <= 1:
-            return
-        await asyncio.sleep(5)
-        if len(input_list) > 1:
-            msg = input_list[:1]
-            msg.append(f'-i {multi - 1}')
-            nextmsg = await sendMessage(message.chat.id, " ".join(msg))
-        else:
-            msg = [s.strip() for s in input_list]
-            index = msg.index('-i')
-            msg[index + 1] = f"{multi - 1}"
-            nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=message.reply_to_message_id + 1)
-            nextmsg = await sendMessage(nextmsg, " ".join(msg"))
+
+@new_task
+async def __run_multi():
+    if multi <= 1:
+        return
+    await asyncio.sleep(5)
+    if len(input_list) > 1:
+        msg = input_list[:1]
+        msg.append(f'-i {multi - 1}')
+        nextmsg = await sendMessage(message.chat.id, " ".join(msg))
+    else:
+        msg = [s.strip() for s in input_list]
+        index = msg.index('-i')
+        msg[index + 1] = f"{multi - 1}"
+        nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=message.reply_to_message_id + 1)
+        nextmsg = await sendMessage(message.chat.id, " ".join(msg))
+    
+    if isinstance(nextmsg, Message):
         nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=nextmsg.id)
         await asyncio.sleep(5)
         await picture_add(client, nextmsg)
+    else:
+        LOGGER.error("Failed to retrieve next message.")
+
 
     __run_multi()
     
