@@ -35,8 +35,13 @@ async def upload_to_imghippo(image_path):
 
 @new_task
 async def picture_add(_, message):
-    # Use arg_parser similar to mirror_leech.py
-    args = arg_parser(message.text, arg_base=BotCommands.AddImageCommand)
+    # Split command and arguments
+    command_text = message.text.split(maxsplit=1)
+    command_str = command_text[0]
+    args_str = command_text[1] if len(command_text) > 1 else ""
+
+    # Use arg_parser to handle arguments
+    args = arg_parser(args_str, arg_base=BotCommands.AddImageCommand)
     num_messages = args.i if args.i is not None else 1
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
