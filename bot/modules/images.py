@@ -59,7 +59,7 @@ async def upload_to_imghippo(image_path):
             return None
 
 @new_task
-async def picture_add(_, client, message):
+async def picture_add(client, _, message):
     resm = message.reply_to_message
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
