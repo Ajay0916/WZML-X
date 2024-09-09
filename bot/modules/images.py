@@ -20,11 +20,6 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger(__name__)
 
-# Define arg_base with 0 for optional arguments
-arg_base = {
-    '-i': 0  # Default value of 0 for the -i argument
-}
-
 async def upload_to_imghippo(image_path):
     upload_url = "https://www.imghippo.com/v1/upload"
     data = aiohttp.FormData()
@@ -44,18 +39,20 @@ async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     pic_add = None
 
-    # Extract and parse arguments
     input_list = message.text.split(maxsplit=1)
-    args = arg_parser(input_list[1:] if len(input_list) > 1 else [], arg_base=arg_base)
+    arg_base = {'-i': '0'}  # Initialize arg_base with only '-i'
+    args = arg_parser(input_list[1:], arg_base)
     cmd = input_list[0].split('@')[0]
-    multi = int(args['-i']) if isinstance(args['-i'], str) and args['-i'].isdigit() else 0
 
-    if len(message.command) > 1 or resm and resm.text:
-        msg_text = resm.text if resm else message.command[1]
-        if not msg_text.startswith("http"):
-            return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
-        pic_add = msg_text.strip()
-        await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+    multi = int(args.get('-i', '0')) if args.get('-i', '0').isdigit() else 0
+
+    if len(message.command) > 1 or (resm and resm.text):
+        msg_text = resm.text if resm else (message.command[1] if len(message.command) > 1 else None)
+        if msg_text and msg_text.startswith("http"):
+            pic_add = msg_text.strip()
+            await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
+        else:
+            await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
     elif resm and resm.photo:
         if resm.photo.file_size > 5242880 * 2:
             return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
@@ -85,8 +82,7 @@ async def picture_add(_, message):
             await DbManger().update_config({'IMAGES': config_dict['IMAGES']})
         await asyncio.sleep(1.5)
         await editMessage(editable, f"<b><i>Successfully Added to Images List!</i></b>\n\n<b>• Total Images : {len(config_dict['IMAGES'])}</b>")
-    
-    # Handling next messages with delay
+
     if multi > 1:
         async def __run_multi():
             if multi <= 1:
@@ -99,7 +95,7 @@ async def picture_add(_, message):
             else:
                 msg = [s.strip() for s in input_list]
                 index = msg.index('-i')
-                msg[index+1] = f"{multi - 1}"
+                msg[index + 1] = f"{multi - 1}"
                 nextmsg = await sendMessage(message.chat.id, " ".join(msg))
             await asyncio.sleep(5)
             await picture_add(_, nextmsg)
