@@ -7,7 +7,7 @@ from pyrogram.filters import command, regex
 
 from bot import bot, config_dict, DATABASE_URL
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, deleteMessage
-from bot.helper.ext_utils.bot_utils import handleIndex, new_task, arg_parsee
+from bot.helper.ext_utils.bot_utils import handleIndex, new_task, arg_parser
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
@@ -37,8 +37,8 @@ async def upload_to_imghippo(image_path):
 async def picture_add(_, message):
     editable = await sendMessage(message, "<i>Fetching Input ...</i>")
     
-    # Parse arguments using arg_parsee from bot_utils
-    args = arg_parsee(message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else "")
+    # Parse arguments using arg_parser from bot_utils
+    args = arg_parser(message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else "")
     
     pic_add = None
 
