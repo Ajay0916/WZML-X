@@ -160,7 +160,7 @@ async def picture_add(_, client, message):
             nextmsg = await sendMessage(nextmsg, " ".join(msg))
         nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=nextmsg.id)
         await asyncio.sleep(5)
-        await picture_add(_, client, nextmsg)
+        await picture_add(_, client, nextmsg, message)
 
     __run_multi()
     
