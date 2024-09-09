@@ -49,9 +49,14 @@ async def picture_add(_, message):
 
     multi = int(args['-i']) if args['-i'].isdigit() else 0
 
+    # Initialize msg_text with a default value
+    msg_text = None
+    if len(message.command) > 1:
+        msg_text = message.command[1]
+    elif resm and resm.text:
+        msg_text = resm.text
     
-    if len(message.command) > 1 or resm and resm.text:
-        msg_text = resm.text if resm else message.command[1]
+    if msg_text:
         if not msg_text.startswith("http"):
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
         pic_add = msg_text.strip()
@@ -108,6 +113,7 @@ async def picture_add(_, message):
         await picture_add(_, nextmsg)
 
     __run_multi()
+    
 
 async def pictures(_, message):
     if not config_dict['IMAGES']:
