@@ -49,19 +49,24 @@ async def picture_add(_, message):
 
     multi = int(args['-i']) if args['-i'].isdigit() else 0
 
-    # Initialize msg_text with a default value
     msg_text = None
     if len(message.command) > 1:
         msg_text = message.command[1]
     elif resm and resm.text:
         msg_text = resm.text
+
+    # Debugging logs
+    LOGGER.info(f"Extracted msg_text: {msg_text}")
     
     if msg_text:
+        # Handle URL
         if not msg_text.startswith("http"):
+            LOGGER.error(f"Invalid link detected: {msg_text}")
             return await editMessage(editable, "<b>Not a Valid Link, Must Start with 'http'</b>")
         pic_add = msg_text.strip()
         await editMessage(editable, f"<b>Adding your Link :</b> <code>{pic_add}</code>")
     elif resm and resm.photo:
+        # Handle Photo
         if resm.photo.file_size > 5242880 * 2:
             return await editMessage(editable, "<i>Media is Not Supported! Only Photos!!</i>")
         try:
@@ -78,6 +83,7 @@ async def picture_add(_, message):
         finally:
             await aioremove(photo_dir)
     else:
+        # Provide help if neither link nor photo is provided
         help_msg = "<b>By Replying to Link (Telegra.ph or DDL):</b>"
         help_msg += f"\n<code>/{BotCommands.AddImageCommand} {{link}}</code>\n"
         help_msg += "<b>By Replying to Photo on Telegram:</b>"
@@ -113,6 +119,7 @@ async def picture_add(_, message):
         await picture_add(_, nextmsg)
 
     __run_multi()
+    
     
 
 async def pictures(_, message):
